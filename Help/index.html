@@ -1,0 +1,120 @@
+<html>
+<head>
+	<title>i.Hex Help</title>
+	<link rel="stylesheet" type="text/css" href="ihex.css">
+</head>
+<body>
+
+	<h1>i.Hex Help</h1>
+	<div class="content">
+
+		<div class="bar"><a href="index.html">Index</a><a href="visual.html">Visualiser</a></div>
+
+		<div class="heading">Overview</div>
+		<a href="http://www.memecode.com/ihex.php">i.Hex</a> is a simple and small hex 
+		editor by <a href="http://www.memecode.com">Memecode</a> software. By only loading
+		part of the file and using 64bit internal offsets i.Hex can cope with arbitarily 
+		large files without slowing down. You can change the values of existing bytes but
+		not insert or delete bytes (yet). Also there is a visualisation add-on that lets
+		you view data through per-defined C-like structures.
+		<p/>
+
+		<div class="heading">Install/Uninstall</div>
+		The binary for i.Hex is a self installing setup executable. But once installed to
+		a folder the program is completely self contained and can be copied or moved to
+		another folder using a file manager. The uninstaller is provided for user's 
+		convenience, you could uninstall the program equally well by just deleting the folder
+		containing it.
+		<p/>
+
+		<div class="heading">Files</div>
+		When you open a file in i.Hex only part of the file is loaded into memory at any
+		given time. This allows you to view/edit any size file without needing large amounts
+		of memory, but it does limit your ability to edit. You can only edit the part of the
+		file in memory, after editing some part of the file if you wish to seek to another
+		area of the file you will have to save your changes back to disk.
+		<p/>
+		You can open a file using the File->Open or File->Recent... menu or the "Open" toolbar
+		button. If you have a file open then other applications will not be able to read or 
+		write to it. If you need to access the file from another program, switch to i.Hex and
+		click File->Close.
+		<p/>
+		If you need to change the size of the currently open file using the File->Change Size 
+		menu option. Select the units of the new size, and type in a value. When you click ok
+		the file's size will be changed, if the new size is smaller than the old size the data
+		will be trucated, but if the new size is large then random data will pad the file out 
+		beyond the existing data.
+
+		<div class="heading">Cursor</div>
+		The main view is divided up into a hex region on the left and a ascii region on the right.
+		Both these panes are viewing the same data, each pair of hex characters represents one
+		ascii character. The cursor is visible at all times in both views but only one view has
+		the focus. The view with the focus has a darker line for the cursor, and will be where
+		and edits from the keyboard will be applied. If the hex side has the focus edits will
+		are in hex, i.e. '0'-'9' or 'a'-'f'. Whereas if the ascii side has the focus then edits
+		will be whole ascii bytes, e.g. 'a'-'z' or any normal keyboard characters. The <key>tab</key>
+		key toggles the focus between the hex and ascii sides.
+		<p/>
+
+		<div class="heading">Information Bar</div>
+		The information bar to the right of the toolbar is the key to navigating the document.
+		Firstly the Offset field shows you where you are in the document as an offset from the
+		start of the file. The value of the Offset field is either a decimal value or a hex value
+		depending on the state of the Hex checkbox on the information bar. You can seek to a new
+		location by typing in a new offset and pressing <key>Enter</key>. If your in hex mode
+		you need to type in a new offset in hex, if your in decimal mode the new offset should
+		be in decimal. There is also some
+		basic arithmetic available in the Offset field. i.e. If you currently at Offset 132 and
+		want to move forward by 32 bytes you can type:
+		<pre>132 + 32</pre>
+		In the Offset field and hit enter and i.Hex will do that calculation and make that the new
+		offset.
+		<p/>
+		The hex checkbox changes the format of the Offset field and the addresses of each line 
+		between decimal (off) and hex (on).
+		<p/>
+		To the right of the checkboxes is a list of feilds showing the data at the cursor in
+		various formats. They are grouped with the labels '1', '2' and '4'. This is just the
+		number of bytes of data being displayed by the group. The 1 byte group shows the
+		byte at the cursor in decimal, hex and as a character respectively. The 2 byte group
+		shows the 2 bytes starting at the cursor as decimal and as hex respectively. The 4
+		byte groups shows the next 4 bytes starting at the cursor as decimal and hex respectively.
+		The display in the 2 and 4 byte groups are effected by the LittleEndian and Signed 
+		checkboxes. When the LittleEndian checkbox is on the data is assumed to be LittleEndian
+		byte order, typically used by x86 machines (Intel, AMD, PC etc). If switched off big
+		endian byte order is used (PPC, Mac etc). The signed checkbox changes whether the data
+		is interpreted as signed or unsigned ints.
+		
+		<div class="heading">Search</div>
+		To search the file for something click the "Search" button on the toolbar
+		or hit <key>Ctrl</key>+<key>F</key>. You can
+		search for ascii or hex data. The search window has an option to search for text or
+		hex. Searching for a text string is the same as in a normal text editor or word 
+		processor. Options for limited matches to words or by case are available. When specifing
+		hex search data you can use any sort of formatting, e.g.:
+		<pre>ff aa 00 01 00 01</pre>
+		-or-
+		<pre>ffaa00010001</pre>
+		Work the same. Take into account that searching for a hex value doesn't treat the data
+		as integers so if your looking for a intel byte order number then you have to reverse
+		the bytes in your search string.
+		<p/>
+		To search again use <key>F3</key> or File->Next.
+
+		<div class="heading">Tools</div>
+		i.Hex includes a tool to <a href="visual.html">visualise</a> the data in user defined formats.
+		You can enable this tool using the "Visualise" button on the toolbar.
+		<p/>
+		You can save the current selection to a file using "Tools -> Save Selection To File". Just the
+		selected bytes are written to a file you select.
+		<p/>
+		If you are viewing a text file and would like to see the data in an easier to read flowed format,
+		click the "Text" button on the toolbar and a handy pane containing the text at the cursor will
+		appear.
+
+
+	</div>
+	<div class="copy">&copy; 2005 <a href="mail:fret@memecode.com">Matthew Allen</a></div>
+
+</body>
+</html>

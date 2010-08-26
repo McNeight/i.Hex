@@ -1,0 +1,136 @@
+<html>
+<head>
+	<title>i.Hex Help</title>
+	<link rel="stylesheet" type="text/css" href="ihex.css">
+</head>
+<body>
+
+	<h1>i.Hex Visualiser</h1>
+	<div class="content">
+
+		<div class="bar"><a href="index.html">Index</a><a href="visual.html">Visualiser</a></div>
+
+		<div class="heading">Overview</div>
+		The visualiser tool in i.Hex allows you to define new ways of viewing data. Firstly
+		once you have a file open click the "Visualise" button on the toolbar to open the visualiser
+		pane, which appears to the right of the ascii view. At the top is a list of structure maps
+		and a toolbar to add, delete and compile them. These are simply text files stored in the
+		same folder as the i.Hex executable that contain user defined data structures. The language
+		used to define these structures is based on C but has been extended to take into account
+		useful new functionalities available in i.Hex.
+		<p/>
+		To get started, create a new structure map by clicking the blue "+" icon. The map editor
+		window should appear letting you name the structure map and then input the actual map.
+		Structure maps are stored in utf-8. The structure defined with the name "Main" is used
+		to visualise the data starting from the cursor. Each time you move the cursor the pane below
+		the structure map list will update with new contents showing the data as viewed through
+		the currently selected structure map. If you want to prevent the visualised view from changing
+		when you move the cursor, click the lock icon on the toolbar. When your ready to update
+		again, turn the lock off and move the cursor.
+		<p/>
+		The format of the structure maps are an extension of the C language structures. A simple
+		example:
+		<pre>struct Main
+{
+  uint32 Signature;
+  uint32 Size;
+  char Name[10];
+};</pre>
+		What this does in practice is format the data at the cursor into a 4 byte integer called 
+		"Signature", then another 4 byte integer called "Size" followed by a 10 byte string called
+		"Name".
+		<p/>
+		However you are not limited to the built in types as shown above. You can define your own
+		types as well. e.g.
+<pre>struct String
+{
+  uint32 Length;
+  char Str[Length];
+};
+
+struct Main
+{
+  uint32 Signature;
+  String Name;
+};</pre>
+		Firstly you can see that I've defined a new type called "String" and then used it in the definition
+		of "Main". You should always define structures before you use them otherwise a compile error will
+		occur. Speaking of which after editing your structure map, click the compile button the visualiser
+		toolbar will compile the structure and tell you if there are errors in the definitions. Secondly
+		in the definition of String I have use a variable for the length of a member. This is where we diverge
+		from C syntax. What happens here is that the length of the member "Str" is defined by the preceding
+		4 bytes interpreted as an integer. This is quite commonly used in the storage of data on disk so it
+		makes sense to be able to do this.
+		<p/>
+		Another import addition to the C syntax is being able to specify conditions on the values of structure
+		members. Commonly file formats include invariant values to confirm the presence of the right type of data
+		or to tag the following contents with some classification. You can mimic this in the structure definition
+		by adding the condition between the variable name and the following colon. e.g.
+<pre>struct Main
+{
+  uint32 Signature = 0xaaff0001;
+  String Name;
+};</pre>
+		The part "= 0xaaff0001" defines a condition on the variable Signature that has to be met before parsing can
+		continue. Conditions at the moment can only be integer or string constants. But maybe in the future
+		ranges, and other math may be allowed.
+		<p/>
+		When defining custom types it is common to have a generic type and then a number of specialisations
+		of that type. For instance your file may have a list of attributes that all have a common header that
+		defined the data type and the attribute's name/id and because you have a common header the reading
+		software can skip over attributes it doesn't understand or doesn't need. This sort of behaviour can
+		be defined in i.Hex structure maps via a form a sub-classing. An example:
+<pre>struct Field
+{
+  uint32 Id;
+  uint32 Size;
+  uint8 Data[Size];
+};
+
+struct StringField : inherits Field
+{
+  uint32 Id = 1001;
+  uint32 Size;
+  char Value[Size];
+};
+
+struct IntField : inherits Field
+{
+  uint32 Id = 1002;
+  uint32 Size = 4;
+  uint32 Value;
+};</pre>
+		The "Field" type is the generic type, and "StringField" and "IntField" define special types of "Field".
+		These specialisations of "Field" have redefine the contents of the field and add conditions on the member
+		variables. What i.Hex does when visualising a "Field" is scans through the types that inherit from "Field"
+		and if they meet all their conditions then the subtype is used to format the data, otherwise the parent
+		"generic" type is used to format the data. Unlike C++ the inheriting of a class does not automatically 
+		include the parents members at the front of the data structure, you have to redefine all the elements, and
+		then set the appropriate conditions on members. If you don't set any conditions on the sub-class members
+		then if can never be used because there is no way to tell if it matches a given bit of data.
+		<p/>
+		Currently there is no support for bit fields but that is planned for a future release.
+		<p/>
+		You can hide the output of certain fields by adding the "hidden" keyword before defining the type. The full
+		syntax of a member variable is:
+		<pre>[hidden] type name [array] [= value];</pre>
+		Where 'type' can be:
+		<ul>
+			<li> int, int8, int16, int32, int64
+			<li> uint, uint8, uint16, uint32, uint64
+			<li> float (4 bytes), double (8 bytes)
+			<li> char, char16, char32
+			<li> strz
+			<li> a custom type
+		</ul>
+		Where 'name' is any legal C variable name.<br>
+		Where 'array' is an array index in the form "[Index]" where index is either an integer constant 
+		or a variable name.<br>
+		Where 'value' is a constant in the form of a decimal or hex integer or a string.<br>
+		Where 'strz' is a NULL terminated string.
+		
+	</div>
+	<div class="copy">&copy; 2005 <a href="mail:fret@memecode.com">Matthew Allen</a></div>
+
+</body>
+</html>
