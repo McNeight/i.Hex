@@ -1560,7 +1560,7 @@ public:
 		{
 			MoveToCenter();
 			LoadFromResource(IDD_MAP_EDIT, this);
-			Txt = dynamic_cast<GTextView3*>(FindControl(IDC_TEXT));
+			Txt = dynamic_cast<GTextView3*>(FindControl(IDC_TXT));
 			if (Txt)
 			{
 				Txt->Sunken(true);
@@ -1571,7 +1571,7 @@ public:
 			if (Map)
 			{
 				SetCtrlName(IDC_NAME, Map->GetText(0));
-				SetCtrlName(IDC_TEXT, Map->GetBody());
+				SetCtrlName(IDC_TXT, Map->GetBody());
 			}
 
 			Visible(true);

@@ -134,6 +134,10 @@ SOURCE=..\..\Lgi\trunk\include\common\GAbout.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\Lgi\trunk\src\common\Widgets\GControlTree.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\Lgi\trunk\src\common\Lgi\GDocApp.cpp
 # End Source File
 # Begin Source File
@@ -151,6 +155,10 @@ SOURCE=..\..\Lgi\trunk\src\common\Text\GHtmlStatic.cpp
 # Begin Source File
 
 SOURCE=..\..\Lgi\trunk\src\common\Text\GTextView3.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Lgi\trunk\src\common\Text\GXmlTreeUi.cpp
 # End Source File
 # Begin Source File
 

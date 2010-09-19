@@ -24,7 +24,7 @@ SearchDlg::~SearchDlg()
 
 void SearchDlg::OnCreate()
 {
-	GViewI *v = FindControl(IDC_TEXT);
+	GViewI *v = FindControl(IDC_TXT);
 	if (v) v->Focus(true);
 }
 
@@ -32,7 +32,7 @@ int SearchDlg::OnNotify(GViewI *c, int f)
 {
 	switch (c->GetId())
 	{
-		case IDC_TEXT:
+		case IDC_TXT:
 		{
 			SetCtrlValue(IDC_FOR, 0);
 			break;
@@ -48,7 +48,7 @@ int SearchDlg::OnNotify(GViewI *c, int f)
 			MatchWord = GetCtrlValue(IDC_MATCH_WORD);
 			MatchCase = GetCtrlValue(IDC_MATCH_CASE);
 
-			char *Str = GetCtrlName(ForHex ? IDC_HEX : IDC_TEXT);
+			char *Str = GetCtrlName(ForHex ? IDC_HEX : IDC_TXT);
 			if (Str)
 			{
 				if (ForHex)
