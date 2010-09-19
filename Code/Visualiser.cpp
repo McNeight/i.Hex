@@ -1631,7 +1631,7 @@ public:
 				}
 				else
 				{
-					LgiMsg(this, "Set the structure name.", AppName);
+					LgiMsg(this, LgiLoadString(IDS_SET_STRUCT), AppName);
 				}
 
 				Quit();

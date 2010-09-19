@@ -89,6 +89,8 @@ class AppWnd : public GDocApp<GOptionsFile>, public GScriptContext
 
 	class SearchDlg *Search;
 
+	GArray<GLanguage*> Languages;
+
 	GStatusBar *Status;
 	GStatusPane *StatusInfo[3];
 

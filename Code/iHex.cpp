@@ -31,6 +31,8 @@ bool CancelSearch = false;
 #define ColourSelectionBack			Rgb24(0, 0, 255)
 #define	CursorColourBack			Rgb24(192, 192, 192)
 
+#define OPT_Lang					"Language"
+
 #define M_INFO						(M_USER + 0x400)
 
 #define HEX_COLUMN					13
@@ -38,6 +40,8 @@ bool CancelSearch = false;
 
 #define FILE_BUFFER_SIZE			1024
 #define	UI_UPDATE_SPEED				500 // ms
+
+#define IDM_LANG_BASE				2000
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 class RandomData : public GStream
@@ -654,11 +658,7 @@ public:
 				Size = GetBytes();
 
 				char s[64];
-				#ifdef WIN32
-				sprintf(s, "(%I64i bytes)", GetBytes());
-				#else
-				sprintf(s, "(%ld bytes)", GetBytes());
-				#endif
+				sprintf(s, "("LGI_PrintfInt64" %s)", GetBytes(), LgiLoadString(IDS_BYTES));
 				SetCtrlName(IDC_BYTE_SIZE, s);
 				break;
 			}
@@ -918,8 +918,6 @@ int64 IHexBar::GetOffset(int IsHex, bool *Select)
 			char *Tok = LgiTokStr(s);
 			if (Tok)
 			{
-				printf("Tok='%s'\n", Tok);
-				
 				if (*Tok == '-' ||
 					*Tok == '+' ||
 					*Tok == '&')
@@ -953,7 +951,6 @@ int64 IHexBar::GetOffset(int IsHex, bool *Select)
 					{
 						c = i;
 					}
-					printf("i=%i c=%i\n", (int)i, (int)c);
 				}
 				DeleteArray(Tok);
 			}
@@ -1725,7 +1722,7 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 				}
 				else
 				{
-					LgiMsg(this, "Couldn't open '%s' for reading.", AppName, MB_OK, FileName);
+					LgiMsg(this, LgiLoadString(IDS_ERROR_CANT_READ), AppName, MB_OK, FileName);
 				}
 			}
 		}
@@ -1940,7 +1937,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 		#if 1
 		if (Rnd->Read(&Buf[0], Buf.Length()) != Buf.Length())
 		{
-			LgiMsg(this, "Random stream failed.", AppName);
+			LgiMsg(this, LgiLoadString(IDS_ERROR_RND), AppName);
 			return;
 		}
 		#endif
@@ -1949,18 +1946,10 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 		{
 			int64 Remain = min(Buf.Length(), Len-i);
 
-			#if 0
-			if (Rnd->Read(&Buf[0], Remain) != Remain)
-			{
-				LgiMsg(this, "Random stream failed.", AppName);
-				return;
-			}
-			#endif
-
 			int w = File->Write(&Buf[0], Remain);
 			if (w != Remain)
 			{
-				LgiMsg(this, "Write file failed.", AppName);
+				LgiMsg(this, LgiLoadString(IDS_ERROR_WRITE_FAILED), AppName);
 				break;
 			}
 
@@ -1975,7 +1964,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 				double Rate = (double)(int64)(i + Remain) / Sec;
 				int TotalSeconds = (Len - i - Remain) / Rate;
 				char s[64];
-				sprintf(s, "%i:%02.2i:%02.2i remaining", TotalSeconds/3600, (TotalSeconds%3600)/60, TotalSeconds%60);
+				sprintf(s, LgiLoadString(IDS_REMAINING), TotalSeconds/3600, (TotalSeconds%3600)/60, TotalSeconds%60);
 				Dlg.SetDescription(s);
 			}
 		}
@@ -2520,7 +2509,7 @@ bool GHexView::OnKey(GKey &k)
 					}
 
 					if (!Done)
-						LgiMsg(this, "No differences.", AppName);
+						LgiMsg(this, LgiLoadString(IDS_NO_DIFF), AppName);
 				}
 				else
 				{
@@ -2647,13 +2636,6 @@ bool GHexView::OnKey(GKey &k)
 ///////////////////////////////////////////////////////////////////////////////////////////////
 AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 {
-	/*
-	if (Options = new GOptionsFile("iHexOptions"))
-	{
-		Options->Serialize(false);
-	}
-	*/
-
 	Tools = 0;
 	Status = 0;
 	Active = false;
@@ -2663,6 +2645,7 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 	Split = 0;
 	Visual = 0;
 	TextView = 0;
+	_LangOptsName = OPT_Lang;
 
 	if (_Create())
 	{
@@ -2691,6 +2674,36 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 			CmdCopy.MenuItem = Menu->FindItem(IDM_COPY);
 			CmdCopyHex.MenuItem = Menu->FindItem(IDM_COPY_HEX);
 			CmdSelectAll.MenuItem = Menu->FindItem(IDM_SELECT_ALL);
+
+			GMenuItem *NoLang = Menu->FindItem(IDM_NO_LANG);
+			if (NoLang)
+			{
+				GSubMenu *LangMenu = NoLang->GetParent();
+				LgiResources *r = LgiGetResObj();
+				if (LangMenu && r)
+				{
+					GLanguageId *Langs = r->GetLanguages();
+					if (Langs)
+					{
+						DeleteObj(NoLang);
+
+						int n = 0;
+						while (*Langs)
+						{
+							GLanguage *l = GFindLang(*Langs);
+							if (l)
+							{
+								Languages.Add(l);
+								char s[128];
+								sprintf(s, "%s (%s)", l->Name, l->Id);
+								LangMenu->AppendItem(s, IDM_LANG_BASE + n++);
+							}
+
+							Langs++;
+						}
+					}
+				}
+			}
 
 			/*
 			GSubMenu *Edit = Menu->AppendSub("&Edit");
@@ -3198,6 +3211,11 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			}
 			break;
 		}
+		case IDM_TRANSLATE:
+		{
+			LgiExecute("http://www.memecode.com/lgi/lgi-translation.php");
+			break;
+		}
 		case IDM_HELP:
 		{
 			Help("index.html");
@@ -3212,6 +3230,18 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 						"_about.gif",
 						"http://www.memecode.com/ihex.php",
 						"fret@memecode.com");
+			break;
+		}
+		default:
+		{
+			if (Cmd >= IDM_LANG_BASE && Cmd < IDM_LANG_BASE + Languages.Length())
+			{
+				GLanguage *l = Languages[Cmd - IDM_LANG_BASE];
+				if (l)
+				{
+					SetLanguage(l->Id);
+				}
+			}
 			break;
 		}
 	}
@@ -3244,7 +3274,7 @@ void AppWnd::Help(char *File)
 		}
 		else
 		{
-			LgiMsg(this, "The help file '%s' doesn't exist.", AppName, MB_OK, e);
+			LgiMsg(this, LgiLoadString(IDS_ERROR_NO_HELP), AppName, MB_OK, e);
 		}
 	}
 }

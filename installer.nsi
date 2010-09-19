@@ -3,8 +3,7 @@
 !system "mkdir ihex-setup"
 !system "del .\ihex-setup\*.*"
 
-!system "copy ..\Lgi\Release\Lgi.dll ihex-setup"
-!system "copy ..\Lgi\Gel\Release\LgiSkin.dll ihex-setup"
+!system "copy ..\..\Lgi\trunk\Release\Lgi.dll ihex-setup"
 !system "copy .\Release\iHex.exe ihex-setup"
 
 !system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
@@ -20,7 +19,7 @@ Name "Memecode i.Hex"
 OutFile "ihex-win32.exe"
 
 ; The default installation directory
-InstallDir $PROGRAMFILES\i.Hex
+InstallDir $PROGRAMFILES\Memecode\i.Hex
 
 ;--------------------------------
 
@@ -41,7 +40,6 @@ Section ""
   ; Program files
   File .\ihex-setup\iHex.exe
   File .\ihex-setup\Lgi.dll
-  File .\ihex-setup\LgiSkin.dll
 
   ; Resources
   File .\Code\ihex.lr8

@@ -74,6 +74,18 @@
 		<String Ref="71" Cid="71" Define="IDC_COL2" en="Offset" />
 		<String Ref="90" Cid="90" Define="IDC_INFO" en="..." />
 	</string-group>
+	<string-group Name="General">
+		<String Ref="96" Cid="96" Define="IDS_ERROR_CANT_READ" en="Couldn't open '%s' for reading." />
+		<String Ref="97" Cid="97" Define="IDS_ERROR_RND" en="Random stream failed." />
+		<String Ref="98" Cid="98" Define="IDS_ERROR_WRITE_FAILED" en="Write to file failed." />
+		<String Ref="99" Cid="99" Define="IDS_NO_DIFF" en="No differences." />
+		<String Ref="100" Cid="100" Define="IDS_ERROR_NO_HELP" en="The help file '%s' doesn't exist." />
+		<String Ref="101" Cid="101" Define="IDS_REMAINING" en="%i:%02.2i:%02.2i remaining" />
+		<String Ref="102" Cid="102" Define="IDS_BYTES" en="bytes" />
+		<String Ref="103" Cid="103" Define="IDS_SET_STRUCT" en="Set the structure name." />
+		<String Ref="104" Cid="-1100" Define="L_DOCAPP_SAVE_CHANGE" en="Do you want to save your changes?" />
+		<String Ref="105" Cid="-1101" Define="L_DOCAPP_RESTART_APP" en="Changing the language requires restarting the application.\nDo you want to restart?" />
+	</string-group>
 	<Dialog pos="7,7,307,129" ref="8">
 		<StaticText pos="14,14,83,27" ref="9" />
 		<EditBox Pos="98,7,202,27" ref="10" />
@@ -169,24 +181,28 @@
 	</Dialog>
 	<menu Name="IDM_MENU">
 		<string-group Name="&lt;untitled&gt;">
-			<String Ref="81" Cid="511" Define="IDM_FIND" en="Find" />
-			<String Ref="83" Cid="512" Define="IDM_FIND_IN_FILES" en="Find In Files" />
-			<String Ref="82" Cid="513" Define="IDM_NEXT" en="Next" />
-			<String Ref="72" Cid="516" en="&Tools" />
-			<String Ref="73" Cid="518" Define="IDM_SAVE_SELECTION" en="Save To File" />
-			<String Ref="74" Cid="519" Define="IDM_RND_SELECTION" en="Fill With Random Bytes" />
-			<String Ref="75" Cid="520" Define="IDM_COMBINE_FILES" en="Combine Files" />
-			<String Ref="76" Cid="515" en="&Edit" />
-			<String Ref="77" Cid="507" Define="IDM_COPY" en="Copy As Binary" />
-			<String Ref="78" Cid="510" Define="IDM_COPY_HEX" en="Copy As Hex" />
-			<String Ref="79" Cid="508" Define="IDM_PASTE" en="Paste" />
-			<String Ref="80" Cid="509" Define="IDM_SELECT_ALL" en="Select All" />
-			<String Ref="84" Cid="514" en="&Help" />
-			<String Ref="85" Cid="517" Define="IDM_HELP" en="&Help" />
+			<String Ref="81" Cid="511" Define="IDM_FIND" en="Find" fr="Trouver" />
+			<String Ref="83" Cid="512" Define="IDM_FIND_IN_FILES" en="Find In Files" fr="Rechercher dans les fichiers" />
+			<String Ref="82" Cid="513" Define="IDM_NEXT" en="Next" fr="Prochain" />
+			<String Ref="72" Cid="516" en="&Tools" fr="&Outils" />
+			<String Ref="73" Cid="518" Define="IDM_SAVE_SELECTION" en="Save To File" fr="Enregistrer dans un fichier" />
+			<String Ref="74" Cid="519" Define="IDM_RND_SELECTION" en="Fill With Random Bytes" fr="Remplissez avec des octets aléatoires" />
+			<String Ref="75" Cid="520" Define="IDM_COMBINE_FILES" en="Combine Files" fr="Combiner des fichiers" />
+			<String Ref="76" Cid="515" en="&Edit" fr="&Éditer" />
+			<String Ref="77" Cid="507" Define="IDM_COPY" en="Copy As Binary" fr="Copie sous forme binaire" />
+			<String Ref="78" Cid="510" Define="IDM_COPY_HEX" en="Copy As Hex" fr="Copiez Comme Hex" />
+			<String Ref="79" Cid="508" Define="IDM_PASTE" en="Paste" fr="Coller" />
+			<String Ref="80" Cid="509" Define="IDM_SELECT_ALL" en="Select All" fr="Sélectionner tout" />
+			<String Ref="84" Cid="514" en="&Help" fr="Aider" />
+			<String Ref="85" Cid="517" Define="IDM_HELP" en="&Help" fr="Aider" />
 			<String Ref="86" Cid="521" Define="IDM_MENU_521" />
-			<String Ref="87" Cid="522" Define="IDM_ABOUT" en="&About" />
-			<String Ref="88" Cid="523" Tag="Debug" en="Unit Testing" />
-			<String Ref="89" Cid="524" Define="IDM_TEST_SEARCH" en="Find in files search" />
+			<String Ref="87" Cid="522" Define="IDM_ABOUT" en="&About" fr="Sur" />
+			<String Ref="88" Cid="523" Tag="Debug" en="Unit Testing" fr="Tests unitaires" />
+			<String Ref="89" Cid="524" Define="IDM_TEST_SEARCH" en="Find in files search" fr="Trouver dans les fichiers de recherche" />
+			<String Ref="91" Cid="525" en="&Language" fr="Langue" />
+			<String Ref="92" Cid="526" Define="IDM_TRANSLATE" en="Translate" fr="Traduire" />
+			<String Ref="93" Cid="527" Define="IDM_MENU_527" />
+			<String Ref="94" Cid="528" Define="IDM_NO_LANG" en="(none)" fr="(aucun)" />
 		</string-group>
 		<submenu Ref="76">
 			<menuitem Ref="77" Shortcut="Ctrl+C" />
@@ -203,6 +219,11 @@
 			<menuitem Ref="73" />
 			<menuitem Ref="74" />
 			<menuitem Ref="75" />
+		</submenu>
+		<submenu Ref="91">
+			<menuitem Ref="92" />
+			<menuitem Sep="1" />
+			<menuitem Enabled="0" Ref="94" />
 		</submenu>
 		<submenu Ref="88">
 			<menuitem Ref="89" />
