@@ -117,7 +117,7 @@
 				<td>
 					<StaticText pos="10,210,174,237" ref="90" />
 				</td>
-				<td>
+				<td align="Max">
 					<Button pos="301,245,370,265" ref="69" />
 				</td>
 			</tr>
