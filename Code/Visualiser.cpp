@@ -1560,7 +1560,7 @@ public:
 		{
 			MoveToCenter();
 			LoadFromResource(IDD_MAP_EDIT, this);
-			Txt = dynamic_cast<GTextView3*>(FindControl(IDC_TXT));
+			Txt = dynamic_cast<GTextView3*>(FindControl(IDC_TEXT));
 			if (Txt)
 			{
 				Txt->Sunken(true);
@@ -1571,7 +1571,7 @@ public:
 			if (Map)
 			{
 				SetCtrlName(IDC_NAME, Map->GetText(0));
-				SetCtrlName(IDC_TXT, Map->GetBody());
+				SetCtrlName(IDC_TEXT, Map->GetBody());
 			}
 
 			Visible(true);
@@ -1631,7 +1631,7 @@ public:
 				}
 				else
 				{
-					LgiMsg(this, LgiLoadString(IDS_SET_STRUCT), AppName);
+					LgiMsg(this, "Set the structure name.", AppName);
 				}
 
 				Quit();

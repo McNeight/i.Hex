@@ -21,7 +21,7 @@
 #include "GScripting.h"
 
 /////////////////////////////////////////////////////////////////////////////
-#define APP_VER						0.98
+#define APP_VER						0.97
 
 /////////////////////////////////////////////////////////////////////////////
 #define IDM_START					100
@@ -32,6 +32,9 @@
 #define IDM_FORWARD					105
 #define IDM_END						106
 #define IDM_CHANGE_FILE_SIZE		107
+#define IDM_SEARCH					108
+#define IDM_NEXT					109
+#define IDM_SAVE_SELECTION			110
 #define IDM_VISUALISE				111
 #define IDM_NEW						112
 #define IDM_DELETE					113
@@ -39,6 +42,11 @@
 #define IDM_TEXTVIEW				115
 #define IDM_LOCK					116
 #define IDM_COMPARE					117
+#define IDM_RND_SELECTION			118
+#define IDM_COMBINE_FILES			119
+
+#define IDM_ABOUT					901
+#define IDM_HELP					902
 
 #define IDC_HEX_VIEW				2000
 #define IDC_LIST					2001
@@ -76,20 +84,13 @@ class AppWnd : public GDocApp<GOptionsFile>, public GScriptContext
 	GCommand CmdSaveAs;
 	GCommand CmdClose;
 	GCommand CmdChangeSize;
-	GCommand CmdCompare;
 	GCommand CmdFind;
 	GCommand CmdNext;
 	GCommand CmdVisualise;
 	GCommand CmdText;
-	GCommand CmdCopy;
-	GCommand CmdCopyHex;
-	GCommand CmdPaste;
-	GCommand CmdSelectAll;
 	GSplitter *Split;
 
 	class SearchDlg *Search;
-
-	GArray<GLanguage*> Languages;
 
 	GStatusBar *Status;
 	GStatusPane *StatusInfo[3];
@@ -110,7 +111,6 @@ public:
 	void Pour();
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(char *FileName);
-	void OnDocument(bool Open);
 
 	bool OnKey(GKey &k);
 	void OnPosChange();
@@ -122,7 +122,6 @@ public:
 	bool OnRequestClose(bool OsShuttingDown);
 	void OnDirty(bool NewValue);
 	void Help(char *File);
-	void OnResult(char *Path, uint64 Offset);
 };
 
 class SearchDlg : public GDialog

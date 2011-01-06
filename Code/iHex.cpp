@@ -16,8 +16,6 @@
 #include "GCombo.h"
 #include "GScrollBar.h"
 #include "GProgressDlg.h"
-#include "GXmlTreeUi.h"
-#include "GTableLayout.h"
 #ifdef WIN32
 #include "wincrypt.h"
 #endif
@@ -31,17 +29,11 @@ bool CancelSearch = false;
 #define ColourSelectionBack			Rgb24(0, 0, 255)
 #define	CursorColourBack			Rgb24(192, 192, 192)
 
-#define OPT_Lang					"Language"
-
-#define M_INFO						(M_USER + 0x400)
-
 #define HEX_COLUMN					13
 #define TEXT_COLUMN					63
 
 #define FILE_BUFFER_SIZE			1024
 #define	UI_UPDATE_SPEED				500 // ms
-
-#define IDM_LANG_BASE				2000
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 class RandomData : public GStream
@@ -98,424 +90,6 @@ public:
 		}
 		#endif
 		return 0;
-	}
-};
-
-#define OPT_FindText		"FindText"
-#define OPT_FindHex			"FindHex"
-#define OPT_FindMatchCase	"MatchCase"
-#define OPT_FindMatchWord	"MatchWord"
-#define OPT_FindFolder		"FindFolder"
-#define OPT_FindRecurse		"FindRecurse"
-#define OPT_FindFileTypes	"FileTypes"
-
-class FindInFiles : public GDialog, public GXmlToUi
-{
-	GDom *Opts;
-
-public:
-	FindInFiles(GViewI *p, GDom *opts)
-	{
-		Opts = opts;
-		SetParent(p);
-		if (LoadFromResource(IDD_FIND_IN_FILES))
-		{
-			MoveToCenter();
-
-			Map(OPT_FindText, IDC_TXT);
-			Map(OPT_FindHex, IDC_HEX);
-			Map(OPT_FindMatchCase, IDC_MATCH_CASE);
-			Map(OPT_FindMatchWord, IDC_MATCH_WORD);
-			Map(OPT_FindFolder, IDC_FOLDER);
-			Map(OPT_FindRecurse, IDC_RECURSE);
-			Map(OPT_FindFileTypes, IDC_TYPES);
-
-			Convert(Opts, this, true);
-		}
-	}
-
-	void OnCreate()
-	{
-		GViewI *v;
-		if (GetViewById(IDC_TXT, v))
-			v->Focus(true);
-	}
-
-	int OnNotify(GViewI *c, int f)
-	{
-		switch (c->GetId())
-		{
-			case IDC_BROWSE_FOLDER:
-			{
-				GFileSelect f;
-				f.Parent(this);
-				if (f.OpenFolder())
-				{
-					SetCtrlName(IDC_FOLDER, f.Name());
-				}
-				break;
-			}
-			case IDOK:
-			case IDCANCEL:
-			{
-				Convert(Opts, this, false);
-				EndModal(c->GetId() == IDOK);
-			}
-		}
-		return 0;
-	}
-};
-
-class ResultItem : public GListItem
-{
-public:
-	GAutoString Path;
-	uint64 Pos;
-
-	ResultItem(char *p, uint64 pos)
-	{
-		Path.Reset(NewStr(p));
-		Pos = pos;
-	}
-
-	char *GetText(int Col)
-	{
-		switch (Col)
-		{
-			case 0:
-				return Path;
-			case 1:
-			{
-				static char s[32];
-				sprintf(s, LGI_PrintfInt64, Pos);
-				return s;
-			}
-		}
-
-		return 0;
-	}
-};
-
-bool FileCallback(void *UserData, char *Path, GDirectory *Dir);
-
-class FindUtils
-{
-protected:
-	GList *Results;
-	bool Loop;
-	uint64 Prev;
-	GAutoString Info;
-
-public:
-	FindUtils(GList *r)
-	{
-		Results = r;
-		Loop = true;
-		Prev = 0;
-	}
-
-	bool Search(char *Path, GStream &s, GArray<uint8> &Needle, bool FindMatchCase)
-	{
-		bool Status = false;
-		GArray<uint8> b;
-		GArray<uint8> not;
-		b.Length(2 << 20);
-		not.Length(256);
-		memset(&not[0], 1, not.Length());
-		for (int n=0; n<Needle.Length(); n++)
-		{
-			not[Needle[n]] = false;
-		}
-
-		uint64 Now = LgiCurrentTime();
-		if (Results &&
-			Results->GetWindow() &&
-			Now - Prev > 1000)
-		{
-			Prev = Now;
-			if (!Info)
-			{
-				Info.Reset(NewStr(Path));
-				Results->GetWindow()->PostEvent(M_INFO, (GMessage::Param)&Info);
-			}
-		}
-
-		int used = 0;
-		for (uint64 i=0; Loop && i<s.GetSize(); )
-		{
-			int r = s.Read(&b[used], b.Length() - used);
-			if (r <= 0)
-				break;
-
-			used += r;
-			int slen = used - Needle.Length();
-			if (slen <= 0)
-				break;
-
-			if (FindMatchCase)
-			{
-				for (int n=0; n<slen; n++)
-				{
-				}
-			}
-			else
-			{
-				uint8 *data_p = &b[0];
-				uint8 *end_p = &b[slen];
-				uint8 *not_p = &not[0];
-				uint8 *needle_p = &Needle[0];
-				int n_len = Needle.Length();
-				while (data_p < end_p)
-				{
-					if (not_p[ data_p[n_len-1] ])
-					{
-						data_p += n_len;
-						continue;
-					}
-					
-					if (*data_p != *needle_p)
-					{
-						data_p++;
-						continue;
-					}
-
-					if (!memcmp(data_p, needle_p, n_len))
-					{
-						Results->Insert(new ResultItem(Path, data_p - &b[0] + i));
-						Status = true;
-						data_p += n_len;
-					}
-					else
-						data_p++;
-				}
-			}
-
-			i += slen;
-			used = r - slen;
-			memmove(&b[0], &b[slen], used);
-		}
-
-		return Status;
-	}
-
-	void OnFinished()
-	{
-		if (Results &&
-			Results->GetWindow())
-		{
-			Info.Reset(NewStr("Finished"));
-			Results->GetWindow()->PostEvent(M_INFO, (GMessage::Param)&Info);
-		}
-	}
-};
-
-class FindInFilesThread : public GThread, public FindUtils
-{
-	GSemaphore Lock;
-	GOptionsFile *Opts;
-	GVariant FindText, FindHex, FindMatchCase, FindMatchWord, FindFolder, FindRecurse, FindFileTypes;
-	GToken Types;
-	GArray<uint8> Needle;
-
-public:
-	FindInFilesThread(GOptionsFile *opts, GList *results) : FindUtils(results)
-	{
-		Opts = opts;
-		Opts->GetValue(OPT_FindText, FindText);
-		Opts->GetValue(OPT_FindHex, FindHex);
-		Opts->GetValue(OPT_FindMatchCase, FindMatchCase);
-		Opts->GetValue(OPT_FindMatchWord, FindMatchWord);
-		Opts->GetValue(OPT_FindFolder, FindFolder);
-		Opts->GetValue(OPT_FindRecurse, FindRecurse);
-		Opts->GetValue(OPT_FindFileTypes, FindFileTypes);
-		Types.Parse(FindFileTypes.Str(), ",;: ");
-
-		if (FindHex.Str())
-		{
-			GArray<char> h;
-			for (char *s = FindHex.Str(); *s; s++)
-			{
-				if (
-					(*s >= '0' && *s <= '9') ||
-					(*s >= 'a' && *s <= 'f') ||
-					(*s >= 'A' && *s <= 'F')
-					)
-					h.Add(*s);
-
-				if (h.Length() == 2)
-				{
-					h.Add(0);
-					Needle.Add(htoi(&h[0]));
-					h.Length(0);
-				}
-			}
-		}
-		else
-		{
-			Needle.Add((uint8*)FindText.Str(), strlen(FindText.Str()));
-		}
-
-		Run();
-	}
-
-	~FindInFilesThread()
-	{
-		Loop = false;
-		while (!IsExited())
-		{
-			LgiSleep(1);
-		}
-	}
-
-	bool OnFile(char *Path, GDirectory *Dir)
-	{
-		if (!Loop)
-			return false;
-
-		char *l = strrchr(Path, DIR_CHAR);
-		if (!l++)
-			return false;
-
-		if (Dir->IsDir())
-			return true;
-
-		bool Match = Types.Length() == 0;
-		if (!Match)
-		{
-			for (int i=0; i<Types.Length(); i++)
-			{
-				if (MatchStr(Types[i], l))
-				{
-					Match = true;
-					break;
-				}
-			}
-		}
-		if (Match)
-		{
-			GFile f;
-			if (f.Open(Path, O_READ))
-			{
-				Search(Path, f, Needle, FindMatchCase.CastBool());
-			}
-		}
-
-		return true;
-	}
-
-	int Main()
-	{
-		if (FindRecurse.CastBool())
-		{
-			LgiRecursiveFileSearch(FindFolder.Str(), 0, 0, 0, 0, (RecursiveFileSearch_Callback)FileCallback, this);
-		}
-		else
-		{
-			GAutoPtr<GDirectory> d(FileDev->GetDir());
-			for (bool b=d->First(FindFolder.Str()); b; b=d->Next())
-			{
-				char p[MAX_PATH];
-				if (!d->IsDir() &&
-					d->Path(p, sizeof(p)) &&
-					!OnFile(p, d))
-					break;
-			}
-		}
-
-		if (Loop)
-			OnFinished();
-		return 0;
-	}
-};
-
-bool FileCallback(void *UserData, char *Path, GDirectory *Dir)
-{
-	return ((FindInFilesThread*)UserData)->OnFile(Path, Dir);
-}
-
-class FindInFilesResults : public GWindow, public GLgiRes
-{
-	AppWnd *App;
-	GOptionsFile *Opts;
-	GAutoPtr<FindInFilesThread> Thread;
-	GList *Lst;
-
-public:
-	FindInFilesResults(AppWnd *app, GOptionsFile *opts)
-	{
-		App = app;
-		Opts = opts;
-		if (LoadFromResource(IDD_FIND_RESULTS, this) &&
-			GetViewById(IDC_RESULTS, Lst))
-		{
-			GRect r(0, 0, 1000, 800);
-			SetPos(r);
-			MoveToCenter();
-			
-			GLayout *v;
-			if (GetViewById(IDC_TABLE, v))
-			{
-				v->SetPourLargest(true);
-			}
-
-			if (Attach(0))
-			{
-				AttachChildren();
-				Visible(true);
-				Thread.Reset(new FindInFilesThread(Opts, Lst));
-			}
-		}
-	}
-
-	int OnNotify(GViewI *v, int f)
-	{
-		switch (v->GetId())
-		{
-			case IDC_RESULTS:
-			{
-				if (f == GLIST_NOTIFY_DBL_CLICK)
-				{
-					List<ResultItem> r;
-					if (Lst->GetSelection(r))
-					{
-						ResultItem *i = r.First();
-						if (i)
-						{
-							App->OnResult(i->Path, i->Pos);
-						}
-					}
-				}
-				break;
-			}
-			case IDOK:
-			{
-				Quit();
-				break;
-			}
-		}
-
-		return 0;
-	}
-
-	int OnEvent(GMessage *m)
-	{
-		if (MsgCode(m) == M_INFO)
-		{
-			GAutoString *a = (GAutoString*) MsgA(m);
-			if (a)
-			{
-				SetCtrlName(IDC_INFO, *a);
-				a->Reset();
-
-				GTableLayout *t;
-				if (GetViewById(IDC_TABLE, t))
-				{
-					t->InvalidateLayout();
-				}
-			}
-		}
-
-		return GWindow::OnEvent(m);
 	}
 };
 
@@ -619,7 +193,7 @@ public:
 			{
 				case 0: // bytes
 				{
-					n = _atoi64(s);
+					n = atoi64(s);
 					break;
 				}
 				case 1: // KB
@@ -658,7 +232,11 @@ public:
 				Size = GetBytes();
 
 				char s[64];
-				sprintf(s, "("LGI_PrintfInt64" %s)", GetBytes(), LgiLoadString(IDS_BYTES));
+				#ifdef WIN32
+				sprintf(s, "(%I64i bytes)", GetBytes());
+				#else
+				sprintf(s, "(%ld bytes)", GetBytes());
+				#endif
 				SetCtrlName(IDC_BYTE_SIZE, s);
 				break;
 			}
@@ -729,13 +307,6 @@ public:
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(char *FileName);
 	bool HasFile() { return File != 0; }
-	bool HasSelection() { return Select >= 0; }
-
-	void Copy(bool AsHex = false);
-	void Paste();
-	void Paste(void *Ptr, int Len);
-	void SelectAll();
-
 	void SaveSelection(char *File);
 	void SelectionFillRandom(GStream *Rnd);
 	void CompareFile(char *File);
@@ -918,6 +489,8 @@ int64 IHexBar::GetOffset(int IsHex, bool *Select)
 			char *Tok = LgiTokStr(s);
 			if (Tok)
 			{
+				printf("Tok='%s'\n", Tok);
+				
 				if (*Tok == '-' ||
 					*Tok == '+' ||
 					*Tok == '&')
@@ -951,6 +524,7 @@ int64 IHexBar::GetOffset(int IsHex, bool *Select)
 					{
 						c = i;
 					}
+					printf("i=%i c=%i\n", (int)i, (int)c);
 				}
 				DeleteArray(Tok);
 			}
@@ -1722,7 +1296,7 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 				}
 				else
 				{
-					LgiMsg(this, LgiLoadString(IDS_ERROR_CANT_READ), AppName, MB_OK, FileName);
+					LgiMsg(this, "Couldn't open '%s' for reading.", AppName, MB_OK, FileName);
 				}
 			}
 		}
@@ -1764,131 +1338,12 @@ bool GHexView::SaveFile(char *FileName)
 	return Status;
 }
 
-void GHexView::Copy(bool AsHex)
-{
-	if (HasSelection())
-	{
-		GClipBoard Cb(this);
-		int64 Min = min(Select, Cursor);
-		int64 Max = max(Select, Cursor);
-		int64 Len = Max - Min + 1;
-
-		// Is the selection text only?
-		bool NonText = !AsHex;
-		int64 Block = 4 << 10;
-		GStringPipe All;
-		for (int64 i=0; i<Len; i+=Block)
-		{
-			int64 AbsPos = Min + i;
-			int64 Bytes = min(Block, Len - i);
-			if (GetData(AbsPos, Bytes))
-			{
-				uchar *p = Buf + (AbsPos - BufPos);
-				if (AsHex)
-				{
-					for (int n=0; n<Bytes; n++)
-						All.Print("%02.2x ", (uint8)p[n]);
-				}
-				else
-				{
-					All.Write(p, Bytes);
-					for (int n=0; n<Bytes; n++)
-					{
-						if (p[n] < ' ' && !strchr("\b\t\r\n", p[n]))
-						{
-							NonText = true;
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		if (NonText)
-		{
-			// Copy as binary
-			int64 Len = All.GetSize();
-			GAutoPtr<void> Buf(All.New());
-			Cb.Binary(CF_PRIVATEFIRST, (uchar*)Buf.Get(), Len, true);			
-		}
-		else
-		{
-			// Copy as text...
-
-			// What charset is it in? (default no conversion)
-			// FIXME
-			GAutoString a(All.NewStr());
-			Cb.Text(a);
-		}
-	}
-}
-
-void GHexView::Paste()
-{
-	GClipBoard Cb(this);
-	GArray<GClipBoard::FormatType> Formats;
-	if (!Cb.EnumFormats(Formats))
-		return;
-
-	for (int i=0; i<Formats.Length(); i++)
-	{
-		switch (Formats[i])
-		{
-			case CF_PRIVATEFIRST:
-			{
-				uint8 *Ptr = 0;
-				int Len = 0;
-				if (Cb.Binary(CF_PRIVATEFIRST, &Ptr, &Len))
-				{
-					Paste(Ptr, Len);
-				}
-				break;
-			}
-			case CF_TEXT:
-			{
-				GAutoString a(Cb.Text());
-				if (a)
-				{
-					Paste(a, strlen(a));
-				}
-				break;
-			}
-		}
-	}
-}
-
-void GHexView::Paste(void *Ptr, int Len)
-{
-	int Block = 4 << 10;
-	for (int i=0; i<Len; i+= Block)
-	{
-		int64 m = min(Len - i, Block);
-		if (GetData(Cursor + i, m))
-		{
-			uchar *p = Buf + Cursor + i - BufPos;
-			LgiAssert(p >= Buf && p + m < Buf + BufLen);
-			memcpy(p, (uchar*)Ptr + i, m);
-		}
-	}
-
-	App->SetDirty(true);
-	Invalidate();
-	DoInfo();
-}
-
-void GHexView::SelectAll()
-{
-	Select = 0;
-	SelectNibble = 0;
-	SetCursor(File->GetSize()-1, 1, true);
-}
-
 void GHexView::SaveSelection(char *FileName)
 {
 	if (File && FileName)
 	{
 		GFile f;
-		if (HasSelection() &&
+		if (Select >= 0 &&
 			f.Open(FileName, O_WRITE))
 		{
 			int64 Min = min(Select, Cursor);
@@ -1937,7 +1392,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 		#if 1
 		if (Rnd->Read(&Buf[0], Buf.Length()) != Buf.Length())
 		{
-			LgiMsg(this, LgiLoadString(IDS_ERROR_RND), AppName);
+			LgiMsg(this, "Random stream failed.", AppName);
 			return;
 		}
 		#endif
@@ -1946,10 +1401,18 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 		{
 			int64 Remain = min(Buf.Length(), Len-i);
 
+			#if 0
+			if (Rnd->Read(&Buf[0], Remain) != Remain)
+			{
+				LgiMsg(this, "Random stream failed.", AppName);
+				return;
+			}
+			#endif
+
 			int w = File->Write(&Buf[0], Remain);
 			if (w != Remain)
 			{
-				LgiMsg(this, LgiLoadString(IDS_ERROR_WRITE_FAILED), AppName);
+				LgiMsg(this, "Write file failed.", AppName);
 				break;
 			}
 
@@ -1964,7 +1427,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 				double Rate = (double)(int64)(i + Remain) / Sec;
 				int TotalSeconds = (Len - i - Remain) / Rate;
 				char s[64];
-				sprintf(s, LgiLoadString(IDS_REMAINING), TotalSeconds/3600, (TotalSeconds%3600)/60, TotalSeconds%60);
+				sprintf(s, "%i:%02.2i:%02.2i remaining", TotalSeconds/3600, (TotalSeconds%3600)/60, TotalSeconds%60);
 				Dlg.SetDescription(s);
 			}
 		}
@@ -2509,7 +1972,7 @@ bool GHexView::OnKey(GKey &k)
 					}
 
 					if (!Done)
-						LgiMsg(this, LgiLoadString(IDS_NO_DIFF), AppName);
+						LgiMsg(this, "No differences.", AppName);
 				}
 				else
 				{
@@ -2636,6 +2099,17 @@ bool GHexView::OnKey(GKey &k)
 ///////////////////////////////////////////////////////////////////////////////////////////////
 AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 {
+	/*
+	if (Options = new GOptionsFile("iHexOptions"))
+	{
+		Options->Serialize(false);
+	}
+	*/
+	
+	#ifdef MAC
+	LgiGetResObj(false, "ihex");
+	#endif
+
 	Tools = 0;
 	Status = 0;
 	Active = false;
@@ -2645,79 +2119,26 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 	Split = 0;
 	Visual = 0;
 	TextView = 0;
-	_LangOptsName = OPT_Lang;
 
 	if (_Create())
 	{
 		DropTarget(true);
-		if (_LoadMenu("IDM_MENU", 
-			#ifdef _DEBUG
-			"Debug"
-			#else
-			"Release"
-			#endif
-			))
+		if (_LoadMenu())
 		{
 			if (_FileMenu)
 			{
+				// CmdSaveAs.MenuItem = Menu->FindItem(IDM_SAVEAS);
+				GMenuItem *i = Menu->FindItem(IDM_SAVEAS);
+				DeleteObj(i);
+
 				CmdSave.MenuItem = Menu->FindItem(IDM_SAVE);
-				CmdSaveAs.MenuItem = Menu->FindItem(IDM_SAVEAS);
 				CmdClose.MenuItem = Menu->FindItem(IDM_CLOSE);
+				CmdChangeSize.MenuItem = _FileMenu->AppendItem("Change Size", IDM_CHANGE_FILE_SIZE, true, 3);
 				_FileMenu->AppendSeparator(4);
-				CmdChangeSize.MenuItem = _FileMenu->AppendItem("Change Size", IDM_CHANGE_FILE_SIZE, true, 5);
-				CmdCompare.MenuItem = _FileMenu->AppendItem("Compare With File", IDM_COMPARE, true, 6);
-			}
-
-			CmdFind.MenuItem = Menu->FindItem(IDM_FIND);
-			CmdNext.MenuItem = Menu->FindItem(IDM_NEXT);
-			CmdPaste.MenuItem = Menu->FindItem(IDM_PASTE);
-			CmdCopy.MenuItem = Menu->FindItem(IDM_COPY);
-			CmdCopyHex.MenuItem = Menu->FindItem(IDM_COPY_HEX);
-			CmdSelectAll.MenuItem = Menu->FindItem(IDM_SELECT_ALL);
-
-			GMenuItem *NoLang = Menu->FindItem(IDM_NO_LANG);
-			if (NoLang)
-			{
-				GSubMenu *LangMenu = NoLang->GetParent();
-				LgiResources *r = LgiGetResObj();
-				if (LangMenu && r)
-				{
-					GLanguageId *Langs = r->GetLanguages();
-					if (Langs)
-					{
-						DeleteObj(NoLang);
-
-						int n = 0;
-						while (*Langs)
-						{
-							GLanguage *l = GFindLang(*Langs);
-							if (l)
-							{
-								Languages.Add(l);
-								char s[128];
-								sprintf(s, "%s (%s)", l->Name, l->Id);
-								LangMenu->AppendItem(s, IDM_LANG_BASE + n++);
-							}
-
-							Langs++;
-						}
-					}
-				}
-			}
-
-			/*
-			GSubMenu *Edit = Menu->AppendSub("&Edit");
-			if (Edit)
-			{
-				CmdCopy.MenuItem = Edit->AppendItem("Copy As Binary\tCtrl+C", IDM_COPY);
-				Edit->AppendItem("Copy As Hex\tShift+Ctrl+C", IDM_COPY_HEX);
-				CmdPaste.MenuItem = Edit->AppendItem("Paste\tCtrl+V", IDM_PASTE);
-				Edit->AppendSeparator();
-				CmdSelectAll.MenuItem = Edit->AppendItem("Select All\tCtrl+A", IDM_SELECT_ALL);
-				Edit->AppendSeparator();
-				CmdFind.MenuItem = Edit->AppendItem("Find\tCtrl+F", IDM_FIND, false, 7);
-				Edit->AppendItem("Find In Files\tShift+Ctrl+F", IDM_FIND_IN_FILES, true);
-				CmdNext.MenuItem = Edit->AppendItem("Next\tF3", IDM_NEXT, false, 8);
+				_FileMenu->AppendItem("Compare With File", IDM_COMPARE, true, 5);
+				_FileMenu->AppendSeparator(6);
+				CmdFind.MenuItem = _FileMenu->AppendItem("Find\tCtrl+F", IDM_SEARCH, false, 7);
+				CmdNext.MenuItem = _FileMenu->AppendItem("Next\tF3", IDM_NEXT, false, 8);
 			}
 
 			GSubMenu *Tools = Menu->AppendSub("&Tools");
@@ -2735,9 +2156,7 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 				Help->AppendSeparator();
 				Help->AppendItem("&About", IDM_ABOUT, true);
 			}
-			*/
 		}
-		OnDocument(false);
 
 		Tools = LgiLoadToolbar(this, "Tools.gif", 24, 24);
 		if (Tools)
@@ -2747,7 +2166,7 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 			Tools->AppendButton("Open", IDM_OPEN);
 			CmdSave.ToolButton = Tools->AppendButton("Save", IDM_SAVE, TBT_PUSH, false);
 			// CmdSaveAs.ToolButton = Tools->AppendButton("Save As", IDM_SAVEAS, TBT_PUSH, false);
-			CmdFind.ToolButton = Tools->AppendButton("Search", IDM_FIND, TBT_PUSH, false, 3);
+			CmdFind.ToolButton = Tools->AppendButton("Search", IDM_SEARCH, TBT_PUSH, false, 3);
 			Tools->AppendSeparator();
 			CmdVisualise.ToolButton = Tools->AppendButton("Visualise", IDM_VISUALISE, TBT_TOGGLE, false, 4);
 			CmdText.ToolButton = Tools->AppendButton("Text", IDM_TEXTVIEW, TBT_TOGGLE, false, 5);
@@ -2807,9 +2226,8 @@ void AppWnd::OnDirty(bool NewValue)
 	CmdSave.Enabled(NewValue);
 	CmdSaveAs.Enabled(NewValue);
 	
-	//CmdClose.Enabled(Doc && Doc->HasFile());
+	CmdClose.Enabled(Doc && Doc->HasFile());
 	CmdChangeSize.Enabled(Doc && Doc->HasFile());
-	CmdCompare.Enabled(Doc && Doc->HasFile());
 }
 
 bool AppWnd::OnKey(GKey &k)
@@ -2947,31 +2365,6 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 {
 	switch (Cmd)
 	{
-		case IDM_COPY:
-		{
-			if (Doc)
-				Doc->Copy();
-			break;
-		}
-		case IDM_COPY_HEX:
-		{
-			if (Doc)
-				Doc->Copy(true);
-			break;
-		}
-		case IDM_PASTE:
-		{
-			if (Doc)
-				Doc->Paste();
-			break;
-		}
-		case IDM_SELECT_ALL:
-		{
-			if (Doc)
-				Doc->SelectAll();
-			break;
-		}
-
 		case IDM_COMBINE_FILES:
 		{
 			GFileSelect s;
@@ -3086,7 +2479,10 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			if (Doc)
 			{
 				Doc->OpenFile(0, false);
-				OnDocument(false);
+				CmdFind.Enabled(false);
+				CmdNext.Enabled(false);
+				CmdVisualise.Enabled(false);
+				CmdText.Enabled(false);
 				OnDirty(GetDirty());
 			}
 			break;
@@ -3109,12 +2505,11 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			if (!Doc)
 				break;
 
-			int Status = 0;
 			RandomData Rnd;
 			Doc->SelectionFillRandom(&Rnd);
 			break;
 		}
-		case IDM_FIND:
+		case IDM_SEARCH:
 		{
 			if (Doc)
 			{
@@ -3124,15 +2519,6 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 				{
 					Doc->DoSearch(Search);
 				}
-			}
-			break;
-		}
-		case IDM_FIND_IN_FILES:
-		{
-			FindInFiles ff(this, GetOptions());
-			if (ff.DoModal())
-			{
-				new FindInFilesResults(this, GetOptions());
 			}
 			break;
 		}
@@ -3169,53 +2555,6 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			}
 			break;
 		}
-		case IDM_TEST_SEARCH:
-		{
-			GList Tmp(100, 0, 0, 100, 100);
-			FindUtils Utils(&Tmp);
-			int Len = 3 << 20;
-			uint8 *Mem = new uint8[Len];
-			if (Mem)
-			{
-				GMemStream MemStr(Mem, Len, false);
-				GArray<uint8> Needle;
-				Needle.Add((uint8*)"STRING", 6);
-
-				int Start = (2 << 20) - 20;
-				int End = (2 << 20) + 20;
-				for (int i=Start; i<End; i++)
-				{
-					MemStr.SetPos(0);
-					memset(Mem, 0, Len);
-					memcpy(Mem + i, &Needle[0], Needle.Length());
-
-					if (Utils.Search("c:\\path.txt", MemStr, Needle, false))
-					{
-						// Check the string was found correctly
-						List<ResultItem> r;
-						if (Tmp.GetAll(r))
-						{
-							LgiAssert(r.Length() == 1); // There is only 1 result.
-							ResultItem *ri = r.First();
-							LgiAssert(ri);
-							LgiAssert(ri->Pos == i);
-						}
-						else LgiAssert(!"ResultItem not found.");
-					}
-					else LgiAssert(!"Search str not found.");
-
-					Tmp.Empty();
-				}
-
-				DeleteArray(Mem);
-			}
-			break;
-		}
-		case IDM_TRANSLATE:
-		{
-			LgiExecute("http://www.memecode.com/lgi/lgi-translation.php");
-			break;
-		}
 		case IDM_HELP:
 		{
 			Help("index.html");
@@ -3232,29 +2571,9 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 						"fret@memecode.com");
 			break;
 		}
-		default:
-		{
-			if (Cmd >= IDM_LANG_BASE && Cmd < IDM_LANG_BASE + Languages.Length())
-			{
-				GLanguage *l = Languages[Cmd - IDM_LANG_BASE];
-				if (l)
-				{
-					SetLanguage(l->Id);
-				}
-			}
-			break;
-		}
 	}
 	
 	return GDocApp<GOptionsFile>::OnCommand(Cmd, Event, Wnd);
-}
-
-void AppWnd::OnResult(char *Path, uint64 Offset)
-{
-	if (OpenFile(Path, false))
-	{
-		Doc->SetCursor(Offset);
-	}
 }
 
 void AppWnd::Help(char *File)
@@ -3274,7 +2593,7 @@ void AppWnd::Help(char *File)
 		}
 		else
 		{
-			LgiMsg(this, LgiLoadString(IDS_ERROR_NO_HELP), AppName, MB_OK, e);
+			LgiMsg(this, "The help file '%s' doesn't exist.", AppName, MB_OK, e);
 		}
 	}
 }
@@ -3307,26 +2626,16 @@ void AppWnd::Pour()
 	GDocApp<GOptionsFile>::Pour();
 }
 
-void AppWnd::OnDocument(bool Open)
-{
-	CmdClose.Enabled(Open);
-	CmdCopy.Enabled(Open);
-	CmdCopyHex.Enabled(Open);
-	CmdPaste.Enabled(Open);
-	CmdSelectAll.Enabled(Open);
-	CmdFind.Enabled(Open);
-	CmdNext.Enabled(Open);
-	CmdVisualise.Enabled(Open);
-	CmdText.Enabled(Open);
-}
-
 bool AppWnd::OpenFile(char *FileName, bool ReadOnly)
 {
 	bool Status = false;
 	if (Doc)
 	{
 		Status = Doc->OpenFile(FileName, ReadOnly);
-		OnDocument(true);
+		CmdFind.Enabled(Status);
+		CmdNext.Enabled(Status);
+		CmdVisualise.Enabled(Status);
+		CmdText.Enabled(Status);
 		OnDirty(GetDirty());
 	}
 	return Status;

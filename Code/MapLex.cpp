@@ -37,7 +37,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
             {
             	break;
             }
-            if (NOT strchr(White, *s))
+            if (!strchr(White, *s))
             {
             	Nwsp = *s;
             }
