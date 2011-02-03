@@ -44,6 +44,8 @@
 #define IDM_COMPARE					117
 #define IDM_RND_SELECTION			118
 #define IDM_COMBINE_FILES			119
+#define IDM_COPY					120
+#define IDM_PASTE					121
 
 #define IDM_ABOUT					901
 #define IDM_HELP					902

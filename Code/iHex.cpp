@@ -19,6 +19,7 @@
 #ifdef WIN32
 #include "wincrypt.h"
 #endif
+#include "GClipBoard.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Application identification
@@ -310,6 +311,9 @@ public:
 	void SaveSelection(char *File);
 	void SelectionFillRandom(GStream *Rnd);
 	void CompareFile(char *File);
+
+	void Copy();
+	void Paste();
 
 	void SetScroll();
 	void SetCursor(int64 cursor, int nibble = 0, bool select = false);
@@ -780,6 +784,48 @@ void GHexView::SetIsHex(bool i)
 	{
 		IsHex = i;
 		Invalidate();
+	}
+}
+
+void GHexView::Copy()
+{
+	GClipBoard c(this);
+
+	int64 Min = min(Select, Cursor);
+	int64 Max = max(Select, Cursor);
+	int64 Len = Max - Min + 1;
+
+	if (GetData(Min, Len))
+	{
+		uint64 Offset = Min - BufPos;
+		uchar *Ptr = Buf + Offset;
+		
+		if (Len > BufUsed - Offset)
+		{
+			Len = BufUsed - Offset;
+		}
+	
+		c.Binary(CF_PRIVATEFIRST, Ptr, Len, true);
+	}
+}
+
+void GHexView::Paste()
+{
+	GClipBoard c(this);
+
+	uint8 *Ptr = 0;
+	int Len = 0;
+	if (c.Binary(CF_PRIVATEFIRST, &Ptr, &Len))
+	{
+		if (GetData(Cursor, Len))
+		{
+			memcpy(Buf + Cursor - BufPos, Ptr, Len);
+			App->SetDirty(true);
+			Invalidate();
+			DoInfo();
+		}	
+
+		DeleteArray(Ptr);
 	}
 }
 
@@ -2144,6 +2190,10 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 			GSubMenu *Tools = Menu->AppendSub("&Tools");
 			if (Tools)
 			{
+				Tools->AppendItem("Copy", IDM_COPY, true, -1, "Ctrl+C");
+				Tools->AppendItem("Paste", IDM_PASTE, true, -1, "Ctrl+V");
+				Tools->AppendSeparator();
+
 				Tools->AppendItem("Save To File", IDM_SAVE_SELECTION, true);
 				Tools->AppendItem("Fill With Random Bytes", IDM_RND_SELECTION, true);
 				Tools->AppendItem("Combine Files", IDM_COMBINE_FILES, true);
@@ -2365,6 +2415,16 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 {
 	switch (Cmd)
 	{
+		case IDM_COPY:
+		{
+			Doc->Copy();
+			break;
+		}
+		case IDM_PASTE:
+		{
+			Doc->Paste();
+			break;
+		}
 		case IDM_COMBINE_FILES:
 		{
 			GFileSelect s;
