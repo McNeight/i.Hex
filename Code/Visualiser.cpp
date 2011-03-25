@@ -169,10 +169,13 @@ public:
 uint64 DeNibble(char *ptr, int size)
 {
 	uint64 n = 0;
-	for (int i=0; i<size; i++)
+	int bytes = size >> 1;
+	for (int i=0; i<bytes; i++)
 	{
-		n <<= 4;
-		n |= ptr[i] & 0xf;
+		int pos = i << 1;
+		n <<= 8;
+		n |= (ptr[pos] & 0xf);
+		n |= (ptr[pos+1] & 0xf) << 4;
 	}
 	return n;
 }
