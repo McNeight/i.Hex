@@ -128,6 +128,7 @@ enum BaseType
 	TypeFloat,
 	TypeChar,
 	TypeStrZ,
+	TypeNibble,
 };
 
 struct Basic
@@ -164,6 +165,17 @@ public:
 
 	int Sizeof();
 };
+
+uint64 DeNibble(char *ptr, int size)
+{
+	uint64 n = 0;
+	for (int i=0; i<size; i++)
+	{
+		n <<= 4;
+		n |= ptr[i] & 0xf;
+	}
+	return n;
+}
 
 class VarDef
 {
@@ -257,8 +269,26 @@ public:
 		{
 			switch (Type->Base->Type)
 			{
+				default:
+					LgiAssert(!"Not impl");
+					break;
 				case TypeInt:
 				{
+					switch (Type->Base->Bytes)
+					{
+						case 1:
+							f = *((int8*)Data);
+							break;
+						case 2:
+							f = *((int16*)Data);
+							break;
+						case 4:
+							f = *((int32*)Data);
+							break;
+						case 8:
+							f = *((int64*)Data);
+							break;
+					}
 					break;
 				}
 				case TypeFloat:
@@ -278,6 +308,12 @@ public:
 				case TypeStrZ:
 				{
 					f = atof(Data);
+					break;
+				}
+				case TypeNibble:
+				{
+					uint64 v = DeNibble(Data, Type->Base->Bytes);
+					f = (int64)v;
 					break;
 				}
 			}
@@ -294,8 +330,26 @@ public:
 		{
 			switch (Type->Base->Type)
 			{
+				default:
+					LgiAssert(!"Not impl");
+					break;
 				case TypeInt:
 				{
+					switch (Type->Base->Bytes)
+					{
+						case 1:
+							f = *((int8*)Data);
+							break;
+						case 2:
+							f = *((int16*)Data);
+							break;
+						case 4:
+							f = *((int32*)Data);
+							break;
+						case 8:
+							f = *((int64*)Data);
+							break;
+					}
 					break;
 				}
 				case TypeFloat:
@@ -317,6 +371,12 @@ public:
 					f = atof(Data);
 					break;
 				}
+				case TypeNibble:
+				{
+					uint64 v = DeNibble(Data, Type->Base->Bytes);
+					f = (int64)v;
+					break;
+				}
 			}
 		}
 
@@ -331,6 +391,9 @@ public:
 		{
 			switch (Type->Base->Type)
 			{
+				default:
+					LgiAssert(!"Not impl");
+					break;
 				case TypeInt:
 				{
 					switch (Type->Base->Bytes)
@@ -417,6 +480,11 @@ public:
 				case TypeStrZ:
 				{
 					i = atoi(Data);
+					break;
+				}
+				case TypeNibble:
+				{
+					i = DeNibble(Data, Type->Base->Bytes);
 					break;
 				}
 			}
@@ -741,6 +809,9 @@ public:
 				Basic *b = d->Type->Base;
 				switch (b->Type)
 				{
+					default:
+						LgiAssert(!"Not impl");
+						break;
 					case TypeInt:
 					{
 						if (!d->Hidden)
@@ -921,6 +992,75 @@ public:
 										Out.Print("#error (%s:%i)\n", LeadIn, __FILE__, __LINE__);
 										break;										
 									}
+								}
+							}
+
+							Data += b->Bytes;
+							Len -= b->Bytes;
+						}
+						break;
+					}
+					case TypeNibble:
+					{
+						if (!d->Hidden)
+						{
+							Out.Print("%s%s", Tabs, d->Name);
+							if (Length > 1)
+								Out.Print(":\n");
+							else
+								Out.Print(" = ");
+						}
+						
+						for (int n=0; n<Length AND Len >= b->Bytes; n++)
+						{
+							if (!d->Hidden)
+							{
+								if (Length > 1)
+									Out.Print("\t%s[%i] = ", Tabs, n);
+								char *LeadIn = Length > 1 ? Tabs : (char*)"";
+
+								switch (b->Bytes)
+								{
+									case 2:
+									{
+										uint8 n = DeNibble(Data, b->Bytes);
+										Out.Print("%s%u (0x%02.2x)\n", LeadIn, n, n);
+										break;
+									}
+									case 4:
+									{
+										uint16 v = DeNibble(Data, b->Bytes);
+										uint16 n = IfSwap(v, Little);
+										Out.Print("%s%u (0x%04.4x)\n", LeadIn, n, n);
+										break;
+									}
+									case 8:
+									{
+										uint32 v = DeNibble(Data, b->Bytes);
+										uint32 n = IfSwap(v, Little);
+										Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
+										break;
+									}
+									case 16:
+									{
+										uint64 v = DeNibble(Data, b->Bytes);
+										uint64 n = IfSwap(v, Little);
+										Out.Print("%s%I64u (0x%016.16I64x)\n", LeadIn, n, n);
+										break;
+									}
+									default:
+										LgiAssert(!"Not impl.");
+										break;
+								}
+							}
+
+							int Val = 0;
+							if (d->HasValue(Val))
+							{
+								if (d->CastInt(Data, Little) != Val)
+								{
+									Out.Print("%sValue Mismatch!\n", Tabs);
+									return false;
 								}
 							}
 
@@ -1248,6 +1388,16 @@ public:
 				v->Base->Bytes = 8;
 			else
 				v->Base->Bytes = 4;
+		}
+		else if (XCmp(t, "nibble", 4) == 0)
+		{
+			v = new VarDefType;
+			v->Base = new Basic;
+			v->Base->Array = false;
+			v->Base->Signed = false;
+			v->Base->Type = TypeNibble;
+			int Bits = AtoiW(t + 6);
+			v->Base->Bytes = Bits ? Bits / 8 : 2;
 		}
 		else if (XCmp(t, "float", 5) == 0)
 		{
