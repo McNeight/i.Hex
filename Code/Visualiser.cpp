@@ -1857,7 +1857,8 @@ GVisualiseView::GVisualiseView(AppWnd *app)
 			LgiTrimDir(Base);
 		#endif
 
-		GArray<char*> Files, Ext;
+		GArray<char*> Files;
+		GArray<const char*> Ext;
 		Ext.Add("*.map");
 		if (LgiRecursiveFileSearch(Base, &Ext, &Files))
 		{
