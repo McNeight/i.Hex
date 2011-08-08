@@ -116,7 +116,7 @@ public:
 
 	bool OnKey(GKey &k);
 	void OnPosChange();
-	int OnEvent(GMessage *Msg);
+	GMessage::Result OnEvent(GMessage *Msg);
 	void OnPaint(GSurface *pDC);
 	int OnCommand(int Cmd, int Event, OsView Wnd);
 	void OnPulse();

@@ -2333,7 +2333,7 @@ void AppWnd::OnPulse()
 {
 }
 
-int AppWnd::OnEvent(GMessage *Msg)
+GMessage::Result AppWnd::OnEvent(GMessage *Msg)
 {
 	return GDocApp<GOptionsFile>::OnEvent(Msg);
 }
