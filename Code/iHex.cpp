@@ -488,7 +488,7 @@ int64 IHexBar::GetOffset(int IsHex, bool *Select)
 			IsHex = GetCtrlValue(IDC_IS_HEX);
 			
 		char LastOp = 0;
-		for (char *s = o; s && *s; )
+		for (const char *s = o; s && *s; )
 		{
 			char *Tok = LgiTokStr(s);
 			if (Tok)

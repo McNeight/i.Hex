@@ -1,4 +1,5 @@
 #include "Lgi.h"
+#include "GToken.h"
 #include "iHex.h"
 #include "GList.h"
 #include "GUtf8.h"
