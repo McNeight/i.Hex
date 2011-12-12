@@ -287,10 +287,10 @@ public:
 							f = *((int16*)Data);
 							break;
 						case 4:
-							f = *((int32*)Data);
+							f = (float) *((int32*)Data);
 							break;
 						case 8:
-							f = *((int64*)Data);
+							f = (float) *((int64*)Data);
 							break;
 					}
 					break;
@@ -317,7 +317,7 @@ public:
 				case TypeNibble:
 				{
 					uint64 v = DeNibble(Data, Type->Base->Bytes);
-					f = (int64)v;
+					f = (float)(int64)v;
 					break;
 				}
 			}
@@ -351,7 +351,7 @@ public:
 							f = *((int32*)Data);
 							break;
 						case 8:
-							f = *((int64*)Data);
+							f = (double)*((int64*)Data);
 							break;
 					}
 					break;
@@ -378,7 +378,7 @@ public:
 				case TypeNibble:
 				{
 					uint64 v = DeNibble(Data, Type->Base->Bytes);
-					f = (int64)v;
+					f = (double)(int64)v;
 					break;
 				}
 			}
@@ -468,13 +468,13 @@ public:
 						case 4:
 						{
 							float *n = (float*)Data;
-							i = *n;
+							i = (int64)*n;
 							break;
 						}
 						case 8:
 						{
 							double *n = (double*)Data;
-							i = *n;
+							i = (int64)*n;
 							break;
 						}
 					}

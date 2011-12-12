@@ -5,7 +5,7 @@ char *White = " \r\t\n";
 #define iswhite(s)		(s AND strchr(White, s) != 0)
 #define isword(s)		(s AND (isdigit(s) OR isalpha(s) OR (s) == '_') )
 #define skipws(s)		while (iswhite(*s)) s++;
-#define SubPtr(a, b)	(((int)a-(int)b)/sizeof(*a))
+#define SubPtr(a, b)	((a)-(b))
 
 #ifdef WIN32
 char16 HexChars[] = L"abcdefABCDEF";
