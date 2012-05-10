@@ -813,9 +813,9 @@ void GHexView::Paste()
 {
 	GClipBoard c(this);
 
-	uint8 *Ptr = 0;
+	GAutoPtr<uint8> Ptr;
 	int Len = 0;
-	if (c.Binary(CF_PRIVATEFIRST, &Ptr, &Len))
+	if (c.Binary(CF_PRIVATEFIRST, Ptr, &Len))
 	{
 		if (GetData(Cursor, Len))
 		{
@@ -824,8 +824,6 @@ void GHexView::Paste()
 			Invalidate();
 			DoInfo();
 		}	
-
-		DeleteArray(Ptr);
 	}
 }
 
@@ -1471,7 +1469,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 
 				double Sec = (double)(int64)(Now - Start) / 1000.0;
 				double Rate = (double)(int64)(i + Remain) / Sec;
-				int TotalSeconds = (Len - i - Remain) / Rate;
+				int TotalSeconds = (int) ((Len - i - Remain) / Rate);
 				char s[64];
 				sprintf(s, "%i:%02.2i:%02.2i remaining", TotalSeconds/3600, (TotalSeconds%3600)/60, TotalSeconds%60);
 				Dlg.SetDescription(s);
@@ -1800,7 +1798,7 @@ void GHexView::OnMouseWheel(double Lines)
 {
 	if (VScroll)
 	{
-		VScroll->Value(VScroll->Value() + Lines);
+		VScroll->Value(VScroll->Value() + (int)Lines);
 		Invalidate();
 	}
 }
