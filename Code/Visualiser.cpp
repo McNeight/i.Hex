@@ -12,7 +12,7 @@ int XCmp(char16 *w, char *utf, int Len = -1)
 
 	if (w AND a)
 	{
-		while (Len == -1 OR Len-- > 0)
+		while (Len == -1 || Len-- > 0)
 		{
 			#define Upper(c) ( ((c)>='a' AND (c)<='z') ? (c) - 'a' + 'A' : (c) )
 			uint32 ca = a;
@@ -20,7 +20,7 @@ int XCmp(char16 *w, char *utf, int Len = -1)
 			if (Status)
 				break;
 
-			if (!a OR !*w)
+			if (!a || !*w)
 				break;
 			
 			w++;
@@ -212,7 +212,7 @@ public:
 		if (Value AND
 			Type AND
 			Type->Base AND
-			((Type->Base->Type == TypeChar) OR (Type->Base->Type == TypeStrZ)))
+			((Type->Base->Type == TypeChar) || (Type->Base->Type == TypeStrZ)))
 		{
 			Str = Value;
 			return true;
@@ -542,7 +542,7 @@ public:
 					if (d->Type AND
 						d->Type->Base)
 					{
-						if ((d->Type->Base->Type == TypeChar) OR (d->Type->Base->Type == TypeStrZ))
+						if ((d->Type->Base->Type == TypeChar) || (d->Type->Base->Type == TypeStrZ))
 						{
 							char *Str = 0;
 							if (d->HasValue(Str))
@@ -1226,7 +1226,7 @@ public:
 				if (Length == 1)
 					Out.Print("%s{\n", Tabs);
 				
-				for (int i=0; (Length < 0 OR i < Length) AND Len > 0; i++)
+				for (int i=0; (Length < 0 || i < Length) AND Len > 0; i++)
 				{
 					StructDef *s = d->Type->Cmplex;
 					if (s->Children.Length() > 0)
@@ -1854,7 +1854,7 @@ GVisualiseView::GVisualiseView(AppWnd *app)
 	if (LgiGetExePath(Base, sizeof(Base)))
 	{
 		#ifdef WIN32
-		if (stristr(Base, "\\Release") OR stristr(Base, "\\Debug"))
+		if (stristr(Base, "\\Release") || stristr(Base, "\\Debug"))
 			LgiTrimDir(Base);
 		#endif
 

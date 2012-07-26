@@ -3,7 +3,7 @@
 
 char *White = " \r\t\n";
 #define iswhite(s)		(s AND strchr(White, s) != 0)
-#define isword(s)		(s AND (isdigit(s) OR isalpha(s) OR (s) == '_') )
+#define isword(s)		(s AND (isdigit(s) || isalpha(s) || (s) == '_') )
 #define skipws(s)		while (iswhite(*s)) s++;
 #define SubPtr(a, b)	((a)-(b))
 
@@ -44,7 +44,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         }
         Status = ReturnString ? NewStrW(Start, SubPtr(s, Start)) : 0;
     }
-    else if (*s == '_' OR
+    else if (*s == '_' ||
         	 isalpha(*s))
     {
         // Identifier
@@ -55,11 +55,11 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
             AND
             (
                 *s == '_'
-                OR
+                ||
                 *s == ':'
-                OR
+                ||
                 isalpha(*s)
-                OR
+                ||
                 isdigit(*s)
             )
         )
@@ -94,29 +94,29 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
     else if
     (
         (s[0] == '-' AND s[1] == '>')
-        OR
+        ||
         (s[0] == '|' AND s[1] == '|')
-        OR
+        ||
         (s[0] == '&' AND s[1] == '&')
-        OR
+        ||
         (s[0] == '+' AND s[1] == '+')
-        OR
+        ||
         (s[0] == '-' AND s[1] == '-')
-        OR
+        ||
         (s[0] == '/' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '-' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '*' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '+' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '^' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '>' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '<' AND s[1] == '=')
-        OR
+        ||
         (s[0] == '-' AND s[1] == '>')
     )
     {
@@ -124,7 +124,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         Status = ReturnString ? NewStrW(s, 2) : 0;
         s += 2;
     }
-    else if (isdigit(*s) OR *s == '-')
+    else if (isdigit(*s) || *s == '-')
     {
         // Constant
         char16 *Start = s;
@@ -142,13 +142,13 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
             AND
             (
                 *s == '-'
-                OR
+                ||
                 *s == '.'
-                OR
+                ||
                 *s == 'e'
-                OR
+                ||
                 isdigit(*s)
-				OR
+				||
 				(Hex AND StrchrW(HexChars, *s))
             )
         )
