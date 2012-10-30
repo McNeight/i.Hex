@@ -6,8 +6,8 @@
 !system "copy ..\..\Lgi\trunk\Release\Lgi.dll ihex-setup"
 !system "copy .\Release\iHex.exe ihex-setup"
 
-!system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
-!system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.dll'
+; system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
+; system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.dll'
 
 ;--------------------------------
 SetCompressor lzma
