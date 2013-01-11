@@ -2715,6 +2715,9 @@ int LgiMain(OsAppArguments &AppArgs)
 	GApp a("application/x-i.Hex", AppArgs);
 	if (a.IsOk())
 	{
+		extern void DiffTest();
+		DiffTest();
+
 		a.AppWnd = new AppWnd;
 		a.Run();
 	}
