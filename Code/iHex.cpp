@@ -20,6 +20,7 @@
 #include "wincrypt.h"
 #endif
 #include "GClipBoard.h"
+#include "Diff.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Application identification
@@ -266,9 +267,16 @@ class GHexView : public GLayout
 	AppWnd *App;
 	IHexBar *Bar;
 	GFont *Font;
-	int CharX, LineY;
-	bool IsHex;
-	bool IsReadOnly;
+	
+	// General display parameters
+		bool IsHex; // Display offsets in hex
+		bool IsReadOnly; // Data is read only
+		GdcPt2 CharSize; // Size of character in pixels
+		int BytesPerLine; // Number of bytes to display on each line
+		int IntWidth; // Number of bytes to display in one contiguous number
+
+	// Layout / paint state
+		int CurrentY;
 
 	// File
 	GFile *File;
@@ -276,8 +284,30 @@ class GHexView : public GLayout
 
 	// Comparision file
 	GFile *Compare;
-	int64 CompareSize;
-	uchar *CompareMap;
+	GArray<uint8> BufA, BufB;
+	int UsedA, UsedB;
+	GArray<Diff::Item> CmpItems;
+	
+	struct Layout
+	{
+		int Len[2];
+		int64 Offset[2];
+		uint8 *Data[2];
+		GRect Pos[2];
+		bool Same;
+		
+		Layout()
+		{
+			Same = false;
+			Len[0] = Len[1] = 0;
+			Offset[0] = Offset[1] = 0;
+			Data[0] = Data[1] = NULL;
+		}
+	};
+	GArray<Layout> CmpLayout;
+	
+	bool BuildCompare(int64 ToOffset);
+	void PaintLayout(GSurface *pDC, Layout &l, GRect &client);
 
 	// Buffer
 	uchar *Buf;			// Buffer for data from the file
@@ -315,6 +345,8 @@ public:
 	void Copy();
 	void Paste();
 
+	bool HasSelection() { return Select >= 0; }
+	int GetSelectedNibbles();
 	void SetScroll();
 	void SetCursor(int64 cursor, int nibble = 0, bool select = false);
 	void SetIsHex(bool i);
@@ -679,17 +711,18 @@ GHexView::GHexView(AppWnd *app, IHexBar *bar)
 	Nibble = 0;
 	Font = 0;
 	Size = 0;
-	LineY = 16;
-	CharX = 8;
+	CharSize.x = 8;
+	CharSize.y = 16;
 	IsHex = true;
 	Pane = HexPane;
 	Select = -1;
 	SelectNibble = 0;
 	IsReadOnly = false;
 	Compare = 0;
-	CompareSize = 0;
-	CompareMap = 0;
-
+	
+	BytesPerLine = 16;
+	IntWidth = 1;
+	
 	SetId(IDC_HEX_VIEW);
 
 	// Font
@@ -700,8 +733,8 @@ GHexView::GHexView(AppWnd *app, IHexBar *bar)
 		if (Font)
 		{
 			GDisplayString ds(Font, "A");
-			CharX = ds.X();
-			LineY = ds.Y();
+			CharSize.x = ds.X();
+			CharSize.y = ds.Y();
 		}
 	}
 	else LgiAssert(0);
@@ -718,7 +751,6 @@ GHexView::GHexView(AppWnd *app, IHexBar *bar)
 GHexView::~GHexView()
 {
 	DeleteObj(Compare);
-	DeleteArray(CompareMap);
 	DeleteObj(Font);
 	DeleteObj(File);
 	DeleteArray(Buf);
@@ -729,13 +761,13 @@ GRect GHexView::GetPositionAt(int64 Offset)
 	GRect c = GetClient();
 	GRect Status;
 	int64 Start = (VScroll ? (uint64)VScroll->Value() : 0) * 16;
-	int Window = (c.Y() / LineY) * 16;
+	int Window = (c.Y() / CharSize.y) * 16;
 
 	if (Offset >= Start && Offset < Start + Window)
 	{
 		// On screen
-		Status.ZOff(c.X(), LineY);
-		Status.Offset(10 * CharX, ((Offset - Start) / 16) * LineY);
+		Status.ZOff(c.X(), CharSize.y);
+		Status.Offset(10 * CharSize.x, ((Offset - Start) / 16) * CharSize.y);
 	}
 	else
 	{
@@ -804,8 +836,16 @@ void GHexView::Copy()
 		{
 			Len = BufUsed - Offset;
 		}
+		
+		GStringPipe p;
+		for (int i=0; i<Len; i++)
+		{
+			p.Print("%s%2.2X", i ? " " : "", Ptr[i]);
+		}
+		GAutoString str(p.NewStr());
 	
 		c.Binary(CF_PRIVATEFIRST, Ptr, Len, true);
+		c.Text(str, false);
 	}
 }
 
@@ -831,8 +871,7 @@ void GHexView::SetScroll()
 {
 	if (VScroll)
 	{
-		int LineY = Font->GetHeight();
-		int Lines = GetClient().Y() / LineY;
+		int Lines = GetClient().Y() / CharSize.y;
 		int64 DocLines = (Size + 15) / 16;
 
 		VScroll->SetLimits(0, DocLines-1);
@@ -893,15 +932,11 @@ bool GHexView::GetData(int64 Start, int Len)
 								((Start + Len) < (BufPos + BufUsed));
 
 					// Check for comparision file
-					if (Compare && CompareMap)
+					if (Compare)
 					{
 						if (Compare->Seek(BufPos, SEEK_SET) == BufPos)
 						{
-							Compare->Read(CompareMap, BufUsed);
-							for (int i=0; i<BufUsed; i++)
-							{
-								CompareMap[i] = CompareMap[i] != Buf[i];
-							}
+							// Compare->Read(CompareMap, BufUsed);
 						}
 					}
 				}
@@ -926,6 +961,29 @@ bool GHexView::GetDataAtCursor(char *&Data, int &Len)
 		return true;
 	}
 	return false;
+}
+
+int GHexView::GetSelectedNibbles()
+{
+	if (Select < 0)
+		return 0;
+
+	int c = (Cursor << 1) + Nibble;
+	int s = (Select << 1) + SelectNibble;
+	
+	int Min, Max;
+	if (s < c)
+	{
+		Min = s;
+		Max = c;
+	}
+	else
+	{
+		Max = s;
+		Min = c;
+	}
+	
+	return Max - Min + 1;
 }
 
 void GHexView::SetCursor(int64 cursor, int nibble, bool Selecting)
@@ -973,7 +1031,7 @@ void GHexView::SetCursor(int64 cursor, int nibble, bool Selecting)
 		if (VScroll)
 		{
 			int64 Start = (uint64) (VScroll ? VScroll->Value() : 0) * 16;
-			int Lines = GetClient().Y() / LineY;
+			int Lines = GetClient().Y() / CharSize.y;
 			int64 End = min(Size, Start + (Lines * 16));
 			if (Cursor < Start)
 			{
@@ -1275,6 +1333,119 @@ void GHexView::DoInfo()
 	}
 }
 
+bool GHexView::BuildCompare(int64 ToOffset)
+{
+	UsedA = UsedB = 0;
+	BufA.Length(BufLen);
+	BufB.Length(BufLen);
+
+	// Read main file
+	File->SetPos(BufPos);
+	UsedA = File->Read(&BufA[0], BufLen);
+	if (UsedA < BufA.Length())
+		BufA.Length(UsedA);
+	
+	// Read comparison file
+	Compare->SetPos(BufPos);
+	UsedB = Compare->Read(&BufB[0], BufLen);
+	if (UsedB < BufB.Length())
+		BufB.Length(UsedB);
+	
+	// If we have no more data to compare, bail with an error
+	if (UsedA <= 0 && UsedB <= 0)
+		return false;
+	
+	Diff Df;
+	uint64 Time0 = LgiCurrentTime();
+	CmpItems = Df.DiffInt(BufA, BufB);
+	uint64 Time1 = LgiCurrentTime();
+
+	int64 PosA = 0, PosB = 0;
+	for (int i=0; i<CmpItems.Length(); i++)
+	{
+		Diff::Item &it = CmpItems[i];
+		// LgiTrace("Diff %i,%i del=%i ins=%i\n", it.StartA, it.StartB, it.deletedA, it.insertedB);
+		
+		if (it.StartA > PosA &&
+			it.StartB > PosB)
+		{
+			// Insert unchanged block
+			int a = it.StartA - PosA;
+			int b = it.StartB - PosB;
+			LgiAssert(a == b); // ?
+
+			Layout &l = CmpLayout.New();
+			l.Same = true;
+			l.Len[0] = a;
+			l.Len[1] = b;
+			l.Offset[0] = PosA;
+			l.Offset[1] = PosB;
+			l.Data[0] = &BufA[0] + PosA;
+			l.Data[1] = &BufB[0] + PosB;
+			PosA += a;
+			PosB += b;
+		}
+		
+		// Insert change block
+		Layout &l = CmpLayout.New();
+		l.Len[0] = it.deletedA;
+		l.Len[1] = it.insertedB;
+		l.Offset[0] = PosA;
+		l.Offset[1] = PosB;
+		l.Data[0] = &BufA[0] + it.StartA;
+		l.Data[1] = &BufB[0] + it.StartB;
+		PosA += it.deletedA;
+		PosB += it.insertedB;
+	}
+
+	if (PosA < UsedA || PosB < UsedB)
+	{
+		// Insert layout block
+		int a = UsedA - PosA;
+		int b = UsedB - PosB;
+		LgiAssert(a == b); // ?
+
+		Layout &l = CmpLayout.New();
+		l.Same = true;
+		l.Len[0] = a;
+		l.Len[1] = b;
+		l.Offset[0] = PosA;
+		l.Offset[1] = PosB;
+		l.Data[0] = &BufA[0] + PosA;
+		l.Data[1] = &BufB[0] + PosB;
+		PosA += a;
+		PosB += b;
+	}
+
+	int CharsPerLine =	11 + // offset
+						2 + // separator
+						(BytesPerLine * 3) + // hex data
+						2 + // separator
+						BytesPerLine + // Acsii
+						4; // separator
+
+	int y = 0;
+	for (int i=0; i<CmpLayout.Length(); i++)
+	{
+		Layout &l = CmpLayout[i];
+		
+		// First position the layout
+		int Bytes = max(l.Len[0], l.Len[1]);
+		int Lines = (Bytes + BytesPerLine - 1) / BytesPerLine;
+		l.Pos[0].ZOff(CharsPerLine * CharSize.x, Lines * CharSize.y - 1);
+		l.Pos[1] = l.Pos[0];
+		l.Pos[0].Offset(0, y);
+		l.Pos[1].Offset(l.Pos[0].x2 + 1, y);
+		
+		y += Lines * CharSize.y;
+	}
+	
+	uint64 Time2 = LgiCurrentTime();
+	LgiTrace("Compare Profile: " LGI_PrintfInt64 " " LGI_PrintfInt64 "\n", Time1-Time0, Time2-Time1);
+
+	return true;
+}
+
 void GHexView::CompareFile(char *File)
 {
 	DeleteObj(Compare);
@@ -1284,9 +1455,7 @@ void GHexView::CompareFile(char *File)
 		{
 			if (Compare->Open(File, O_READ))
 			{
-				if (!CompareMap) CompareMap = new uchar[BufLen];
-				CompareSize = Compare->GetSize();
-				BufPos = -(BufLen * 2);
+				BuildCompare(BufLen);
 				Invalidate();
 			}
 			else DeleteObj(Compare);
@@ -1301,7 +1470,10 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 	if (App->SetDirty(false))
 	{
 		DeleteObj(Compare);
-		DeleteArray(CompareMap);
+		CmpItems.Length(0);
+		CmpLayout.Length(0);
+		BufA.Length(0);
+		BufB.Length(0);
 		DeleteObj(File);
 		DeleteArray(Buf);
 		BufPos = 0;
@@ -1357,6 +1529,10 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 
 		Invalidate();
 		DoInfo();
+
+		char Title[MAX_PATH + 100];
+		sprintf_s(Title, sizeof(Title), "%s [%s]", AppName, FileName);
+		App->Name(Title);
 	}
 
 	return Status;
@@ -1516,6 +1692,226 @@ void GHexView::OnPulse()
 	}
 }
 
+GColour ChangedFore(0xf1, 0xe2, 0xad);
+GColour ChangedBack(0xef, 0xcb, 0x05);
+GColour DeletedBack(0xc0, 0xc0, 0xc0);
+
+void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
+{
+	// First position the layout
+	int Bytes = max(l.Len[0], l.Len[1]);
+	int Lines = (Bytes + BytesPerLine - 1) / BytesPerLine;
+	
+	// Now draw the layout data
+	char s[256];
+	COLOUR Fore[256];
+	COLOUR Back[256];
+
+	for (int Side = 0; Side < (Compare ? 2 : 1); Side++)
+	{
+		if (l.Len[Side] == 0)
+		{
+			pDC->Colour(DeletedBack);
+			pDC->Rectangle(&l.Pos[Side]);
+			continue;
+		}	
+		
+		for (int Line=0; Line<Lines; Line++)
+		{
+			int CurY = l.Pos[Side].y1 + (Line * CharSize.y);
+			char *p = s;
+			int64 LineStart = l.Offset[Side] + (Line * BytesPerLine);
+			
+			int Cx1; // Screen x for cursor in the HEX view
+			int Cx2; // Screen x for cursor in the ASCII view
+			bool IsCursor = ((Cursor >= LineStart) && (Cursor < LineStart + BytesPerLine));
+
+			// Clear the colours for this line
+			int i;
+			for (i=0; i<CountOf(Back); i++)
+			{
+				Fore[i] = LC_TEXT;
+				Back[i] = l.Same ? LC_WORKSPACE : ChangedBack.c24();
+			}
+
+			// Create line of text
+			if (IsHex)
+			{
+				p += sprintf(p, "%02.2x:%08.8X  ", (uint)(LineStart >> 32), (uint)LineStart);
+			}
+			else
+			{
+				#ifdef WIN32
+				p += sprintf(p, "%11.11I64i  ", LineStart);
+				#else
+				p += sprintf(p, "%11.11li  ", LineStart);
+				#endif
+			}			
+			if (IsCursor)
+			{
+				// Work out the x position on screen for the cursor in the hex section
+				int Off = ((Cursor-LineStart)*3) + Nibble;
+				GDisplayString ds(Font, s);
+				Cx1 = ds.X() + (CharSize.x * Off);
+			}
+
+			// Print the hex bytes to the line
+			int64 n;
+			int64 From = Line * BytesPerLine, To = From + BytesPerLine;
+			for (n=From; n<To; n++, p+=3)
+			{
+				if (n < l.Len[Side])
+				{
+					sprintf(p, "%02.2X ", l.Data[Side][n]);
+					if (!l.Same)
+					{
+						int k = p - s;
+						Back[k++] = ChangedFore.c24();
+						Back[k++] = ChangedFore.c24();
+						Back[k++] = ChangedFore.c24();
+					}
+				}
+				else
+				{
+					strcat(p, "   ");
+				}
+			}
+
+			// Separator between hex/ascii
+			strcat(s, "  ");
+			p += 2;
+
+			if (IsCursor)
+			{
+				// Work out cursor location in the ASCII view
+				int Off = Cursor-LineStart;
+				GDisplayString ds(Font, s);
+				Cx2 = ds.X() + (CharSize.x * Off);
+			}
+
+			// Print the ascii characters to the line
+			for (n=From; n<To; n++)
+			{
+				if (n < l.Len[Side])
+				{
+					uchar c = l.Data[Side][n];
+					if (!l.Same)
+					{
+						int k = p - s;
+						Back[k++] = ChangedFore.c24();
+					}
+					*p++ = (c >= ' ' && c < 0x7f) ? c : '.';
+				}
+				else
+				{
+					*p++ = ' ';
+				}
+			}
+			*p++ = 0;
+
+			// Draw text
+			GRect Tr = l.Pos[Side];
+
+			Font->Colour(LC_TEXT, LC_WORKSPACE);
+			char16 *Wide = (char16*)LgiNewConvertCp(LGI_WideCharset, s, "iso-8859-1");
+			if (Wide)
+			{
+				// Paint the selection into the colour buffers
+				int64 Min = Select >= 0 ? min(Select, Cursor) : -1;
+				int64 Max = Select >= 0 ? max(Select, Cursor) : -1;
+				if (Min < LineStart + BytesPerLine &&
+					Max >= LineStart)
+				{
+					// Part or all of this line is selected
+					int64 s = ((Select - LineStart) * 3) + SelectNibble;
+					int64 e = ((Cursor - LineStart) * 3) + Nibble;
+					if (s > e)
+					{
+						int64 i = s;
+						s = e;
+						e = i;
+					}
+					if (s < 0) s = 0;
+					if (e > BytesPerLine * 3 - 2) e = BytesPerLine * 3 - 2;
+
+					for (i=s+HEX_COLUMN; i<=e+HEX_COLUMN; i++)
+					{
+						Fore[i] = ColourSelectionFore;
+						Back[i] = ColourSelectionBack;
+					}
+					for (i=(s/3)+TEXT_COLUMN; i<=(e/3)+TEXT_COLUMN; i++)
+					{
+						Fore[i] = ColourSelectionFore;
+						Back[i] = ColourSelectionBack;
+					}
+				}
+
+				// Colour the back of the cursor grey...
+				if (Cursor >= LineStart && Cursor < LineStart+BytesPerLine)
+				{
+					if (Select < 0 && Flash)
+					{
+						Back[HEX_COLUMN+((Cursor-LineStart)*3)+Nibble] = CursorColourBack;
+						Back[TEXT_COLUMN+Cursor-LineStart] = CursorColourBack;
+					}
+				}
+
+				// Go through the colour buffers, painting in runs of similar colour
+				GRect r;
+				int Cx = Tr.x1;
+				int Len = p - s;
+				for (i=0; i<Len; )
+				{
+					int e = i;
+					while (e < Len)
+					{
+						if (Fore[e] != Fore[i] ||
+							Back[e] != Back[i])
+							break;
+						e++;
+					}
+
+					int Run = e - i;
+					GDisplayString Str(Font, s + i, Run);
+					if (e >= Len)
+						r.Set(Cx, CurY, l.Pos[Side].x2, CurY+Str.Y()-1);
+					else
+						r.Set(Cx, CurY, Cx+Str.X()-1, CurY+Str.Y()-1);
+					Font->Colour(Fore[i], Back[i]);
+					Str.Draw(pDC, Cx, CurY, &r);
+					Cx += Str.X();
+					i = e;
+				}
+				
+				DeleteArray(Wide);
+			}
+
+			// Draw cursor
+			if (IsCursor)
+			{
+				pDC->Colour(Focus() ? LC_TEXT : LC_LOW, 24);
+				int Cy = CurY+CharSize.y-1;
+
+				// hex cursor
+				CursorHex.Set(Cx1, Cy - (Pane == HexPane ? 1 : 0), Cx1+CharSize.x, Cy);
+				pDC->Rectangle(&CursorHex);
+
+				// ascii cursor
+				CursorText.Set(Cx2, Cy - (Pane == AsciiPane ? 1 : 0), Cx2+CharSize.x, Cy);
+				pDC->Rectangle(&CursorText);
+			}
+		}
+	}
+
+	if (client.x2 > l.Pos[1].x2)
+	{
+		pDC->Colour(LC_WORKSPACE, 24);
+		pDC->Rectangle(l.Pos[1].x2, l.Pos[1].y1, client.x2, l.Pos[1].y2);
+	}
+	
+	CurrentY += Lines * CharSize.y;
+}
+
 void GHexView::OnPaint(GSurface *pDC)
 {
 	GRect r = GetClient();
@@ -1524,25 +1920,50 @@ void GHexView::OnPaint(GSurface *pDC)
 	char s[256];
 	COLOUR Fore[256];
 	COLOUR Back[256];
-	int CurrentY = r.y1;
+	CurrentY = r.y1;
 	uint64 YPos = VScroll ? VScroll->Value() : 0;
-	int64 Start = YPos << 4;
-	int Lines = GetClient().Y() / LineY;
-	int64 End = min(Size-1, Start + (Lines * 16));
+	int64 Start = YPos * BytesPerLine;
+	int Lines = r.Y() / CharSize.y;
+	int64 End = min(Size-1, Start + (Lines * BytesPerLine));
 	Font->Transparent(false);
 	CursorHex.ZOff(-1, -1);
 	CursorText.ZOff(-1, -1);
 
-	if (GetData(Start, End-Start))
+	if (CmpLayout.Length())
 	{
-		for (int l=0; l<Lines; l++, CurrentY += LineY)
+		#if 0
+		pDC->Colour(GColour(255, 0, 255));
+		pDC->Rectangle();
+		#endif
+
+		int DisplayOffset = YPos * CharSize.y;
+		pDC->SetOrigin(0, DisplayOffset);
+		r.Offset(0, DisplayOffset);
+		
+		for (int i=0; i<CmpLayout.Length(); i++)
+		{
+			Layout &l = CmpLayout[i];
+			if (!l.Pos[0].Overlap(&r))
+				continue;
+			PaintLayout(pDC, l, r);
+		}
+		
+		if (CurrentY < r.y2)
+		{
+			pDC->Colour(LC_WORKSPACE, 24);
+			// pDC->Rectangle(0, CurrentY, r.x2, r.y2);
+		}
+	}
+	else if (GetData(Start, End-Start))
+	{
+		for (int l=0; l<Lines; l++, CurrentY += CharSize.y)
 		{
 			char *p = s;
-			int64 LineStart = Start + (l * 16);
+			int64 LineStart = Start + (l * BytesPerLine);
 			if (LineStart >= Size) break;
 			int Cx1; // Screen x for cursor in the HEX view
 			int Cx2; // Screen x for cursor in the ASCII view
-			bool IsCursor = ((Cursor >= LineStart) && (Cursor < LineStart + 16));
+			bool IsCursor = ((Cursor >= LineStart) && (Cursor < LineStart + BytesPerLine));
 
 			// Clear the colours for this line
 			for (i=0; i<CountOf(Back); i++)
@@ -1569,23 +1990,25 @@ void GHexView::OnPaint(GSurface *pDC)
 				// Work out the x position on screen for the cursor in the hex section
 				int Off = ((Cursor-LineStart)*3) + Nibble;
 				GDisplayString ds(Font, s);
-				Cx1 = ds.X() + (CharX * Off);
+				Cx1 = ds.X() + (CharSize.x * Off);
 			}
 
 			// Print the hex bytes to the line
 			int64 n;
-			for (n=LineStart; n<LineStart+16; n++, p+=3)
+			for (n=LineStart; n<LineStart+BytesPerLine; n++, p+=3)
 			{
 				if (n < Size)
 				{
 					sprintf(p, "%02.2X ", Buf[n-BufPos]);
 
+					/* FIXME
 					if (CompareMap && CompareMap[n-BufPos])
 					{
 						Fore[p - s] = Rgb24(255, 0, 0);
 						Fore[p - s + 1] = Rgb24(255, 0, 0);
 						Fore[p - s + 2] = Rgb24(255, 0, 0);
 					}
+					*/
 				}
 				else
 				{
@@ -1602,23 +2025,25 @@ void GHexView::OnPaint(GSurface *pDC)
 				// Work out cursor location in the ASCII view
 				int Off = Cursor-LineStart;
 				GDisplayString ds(Font, s);
-				Cx2 = ds.X() + (CharX * Off);
+				Cx2 = ds.X() + (CharSize.x * Off);
 			}
 
 			// Print the ascii characters to the line
-			for (n=LineStart; n<Size && n<LineStart+16; n++)
+			for (n=LineStart; n<Size && n<LineStart+BytesPerLine; n++)
 			{
 				uchar c = Buf[n-BufPos];
+				/* FIXME
 				if (CompareMap && CompareMap[n-BufPos])
 				{
 					Fore[p - s] = Rgb24(255, 0, 0);
 				}
+				*/
 				*p++ = (c >= ' ' && c < 0x7f) ? c : '.';
 			}
 			*p++ = 0;
 
 			// Draw text
-			GRect Tr(0, CurrentY, r.X()-1, CurrentY+LineY-1);
+			GRect Tr(0, CurrentY, r.X()-1, CurrentY+CharSize.y-1);
 
 			Font->Colour(LC_TEXT, LC_WORKSPACE);
 			char16 *Wide = (char16*)LgiNewConvertCp(LGI_WideCharset, s, "iso-8859-1");
@@ -1627,7 +2052,7 @@ void GHexView::OnPaint(GSurface *pDC)
 				// Paint the selection into the colour buffers
 				int64 Min = Select >= 0 ? min(Select, Cursor) : -1;
 				int64 Max = Select >= 0 ? max(Select, Cursor) : -1;
-				if (Min < LineStart + 16 &&
+				if (Min < LineStart + BytesPerLine &&
 					Max >= LineStart)
 				{
 					// Part or all of this line is selected
@@ -1640,7 +2065,7 @@ void GHexView::OnPaint(GSurface *pDC)
 						e = i;
 					}
 					if (s < 0) s = 0;
-					if (e > 16 * 3 - 2) e = 16 * 3 - 2;
+					if (e > BytesPerLine * 3 - 2) e = BytesPerLine * 3 - 2;
 
 					for (i=s+HEX_COLUMN; i<=e+HEX_COLUMN; i++)
 					{
@@ -1655,7 +2080,7 @@ void GHexView::OnPaint(GSurface *pDC)
 				}
 
 				// Colour the back of the cursor grey...
-				if (Cursor >= LineStart && Cursor < LineStart+16)
+				if (Cursor >= LineStart && Cursor < LineStart+BytesPerLine)
 				{
 					if (Select < 0 && Flash)
 					{
@@ -1698,14 +2123,14 @@ void GHexView::OnPaint(GSurface *pDC)
 			if (IsCursor)
 			{
 				pDC->Colour(Focus() ? LC_TEXT : LC_LOW, 24);
-				int Cy = CurrentY+LineY-1;
+				int Cy = CurrentY+CharSize.y-1;
 
 				// hex cursor
-				CursorHex.Set(Cx1, Cy - (Pane == HexPane ? 1 : 0), Cx1+CharX, Cy);
+				CursorHex.Set(Cx1, Cy - (Pane == HexPane ? 1 : 0), Cx1+CharSize.x, Cy);
 				pDC->Rectangle(&CursorHex);
 
 				// ascii cursor
-				CursorText.Set(Cx2, Cy - (Pane == AsciiPane ? 1 : 0), Cx2+CharX, Cy);
+				CursorText.Set(Cx2, Cy - (Pane == AsciiPane ? 1 : 0), Cx2+CharSize.x, Cy);
 				pDC->Rectangle(&CursorText);
 			}
 		}
@@ -1785,7 +2210,7 @@ void GHexView::OnPaint(GSurface *pDC)
 					}
 					
 					pDC->Colour(LC_WORKSPACE, 24);
-					pDC->Rectangle(Cx, CurrentY, X()-1, CurrentY+LineY-1);
+					pDC->Rectangle(Cx, CurrentY, X()-1, CurrentY+CharSize.y-1);
 				}
 				else
 				{
@@ -1808,11 +2233,11 @@ bool GHexView::GetCursorFromLoc(int x, int y, int64 &Cur, int &Nib)
 	uint64 Start = ((uint64)(VScroll ? VScroll->Value() : 0)) * 16;
 	GRect c = GetClient();
 
-	int _x1 = (((x - c.x1) / CharX) - HEX_COLUMN);
-	int _x2 = (((x - c.x1) / CharX) - TEXT_COLUMN);
+	int _x1 = (((x - c.x1) / CharSize.x) - HEX_COLUMN);
+	int _x2 = (((x - c.x1) / CharSize.x) - TEXT_COLUMN);
 	int cx = _x1 / 3;
 	int n = _x1 % 3 > 0;
-	int cy = (y - c.y1) / LineY;
+	int cy = (y - c.y1) / CharSize.y;
 
 	if (cx >= 0 && cx < 16)
 	{
@@ -1871,7 +2296,7 @@ void GHexView::OnFocus(bool f)
 
 bool GHexView::OnKey(GKey &k)
 {
-	int Lines = GetClient().Y() / LineY;
+	int Lines = GetClient().Y() / CharSize.y;
 
 	switch (k.vkey)
 	{
@@ -1987,13 +2412,13 @@ bool GHexView::OnKey(GKey &k)
 		{
 			if (k.Down())
 			{
-				if (k.Ctrl() && CompareMap)
+				if (k.Ctrl())
 				{
 					// Find next difference
-					// int64 p = Cursor - BufPos + 1;
 					int Block = 16 << 10;
 
 					bool Done = false;
+					/*
 					for (int64 n = Cursor - BufPos + 1; !Done && n < Size; n += Block)
 					{
 						if (GetData(n, Block))
@@ -2014,6 +2439,7 @@ bool GHexView::OnKey(GKey &k)
 						}
 						else break;
 					}
+					*/
 
 					if (!Done)
 						LgiMsg(this, "No differences.", AppName);
@@ -2259,6 +2685,18 @@ AppWnd::~AppWnd()
 	_Destroy();
 }
 
+void AppWnd::OnReceiveFiles(GArray<char*> &Files)
+{
+	if (Files.Length() > 0)
+	{
+		if (OpenFile(Files[0], false) &&
+			Files.Length() > 1)
+		{
+			Doc->CompareFile(Files[1]);
+		}
+	}
+}
+
 bool AppWnd::OnRequestClose(bool OsShuttingDown)
 {
 	if (!Active)
@@ -2320,6 +2758,11 @@ int AppWnd::OnNotify(GViewI *Ctrl, int Flags)
 						DeleteArray(t);
 					}
 				}
+				
+				int SelLen = Doc->GetSelectedNibbles();
+				char s[256];
+				sprintf_s(s, sizeof(s), "Selection: %.1f bytes", (double)SelLen/2.0);
+				StatusInfo[1]->Name(SelLen ? s : NULL);
 			}
 			break;
 		}

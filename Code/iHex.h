@@ -124,6 +124,7 @@ public:
 	bool OnRequestClose(bool OsShuttingDown);
 	void OnDirty(bool NewValue);
 	void Help(char *File);
+	void OnReceiveFiles(GArray<char*> &Files);
 };
 
 class SearchDlg : public GDialog
