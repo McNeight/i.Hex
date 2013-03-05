@@ -667,7 +667,7 @@ public:
 		Compiled.DeleteObjects();
 	}
 
-	bool GetVariant(char *Name, GVariant &Value, char *Array = 0)
+	bool GetVariant(const char *Name, GVariant &Value, char *Array = 0)
 	{
 		if (!Name)
 			return false;
@@ -703,7 +703,7 @@ public:
 		Addr.Length(0);
 		Little = little;
 
-		for (int i=0; i<s->Vars.Length() AND Len > 0; i++)
+		for (int i=0; i<s->Vars.Length() && Len > 0; i++)
 		{
 			VarDef *d = s->Vars[i];
 
