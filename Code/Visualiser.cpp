@@ -692,6 +692,40 @@ public:
 
 		return false;
 	}
+	
+	template<typename T>
+	T *DisplayString(T *str, int bytes)
+	{
+		GArray<T> out;
+		int chars = bytes / sizeof(T);
+		for (int i=0; i<chars; i++)
+		{
+			switch (str[i])
+			{
+				case '\r':
+					out.Add('\\'); out.Add('r'); break;
+				case '\n':
+					out.Add('\\'); out.Add('n'); break;
+				case '\t':
+					out.Add('\\'); out.Add('t'); break;
+				default:
+					if (str[i] < ' ' || str[i] >= 0x7f)
+					{
+						char hex[16];
+						int ch = sprintf_s(hex, sizeof(hex), "\\x%x", str[i]);
+						for (int c=0; c<ch; c++)
+							out.Add(hex[c]);
+					}
+					else
+					{
+						out.Add(str[i]);
+					}
+					break;
+			}
+		}
+		out.Add(0);
+		return out.Release();
+	}
 
 	bool DoStruct(StructDef *s, char *Base, char *&Data, int &Len, GStream &Out, bool little, int Depth = 0)
 	{
@@ -1075,11 +1109,18 @@ public:
 					}
 					case TypeChar:
 					{
-						if (!d->Hidden AND Length < 1024)
+						if (!d->Hidden)
 						{
-							if (d->Type->Base->Bytes == 1)
+							bool Long =  Length >= 256;
+							if (Long)
 							{
-								char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
+								Out.Print("%s%s[%i]\n", Tabs, d->Name, Length);
+							}
+							else if (d->Type->Base->Bytes == 1)
+							{
+								// char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
+								char *u = DisplayString(Data, Length);
+
 								Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
 								if (u AND d->Value)
 								{
