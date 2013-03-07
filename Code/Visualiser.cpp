@@ -10,11 +10,11 @@ int XCmp(char16 *w, char *utf, int Len = -1)
 	int Status = -1;
 	GUtf8Ptr a(utf);
 
-	if (w AND a)
+	if (w && a)
 	{
 		while (Len == -1 || Len-- > 0)
 		{
-			#define Upper(c) ( ((c)>='a' AND (c)<='z') ? (c) - 'a' + 'A' : (c) )
+			#define Upper(c) ( ((c)>='a' && (c)<='z') ? (c) - 'a' + 'A' : (c) )
 			uint32 ca = a;
 			Status = Upper(*w) - Upper(ca);
 			if (Status)
@@ -186,20 +186,18 @@ class VarDef
 public:
 	VarDefType *Type;
 	char *Name;
-	char *Value;
+	GVariant Value;
 	bool Hidden;
 
 	VarDef()
 	{
 		Name = 0;
-		Value = 0;
 		Hidden = false;
 	}
 
 	~VarDef()
 	{
 		DeleteArray(Name);
-		DeleteArray(Value);
 	}
 
 	int Sizeof()
@@ -209,12 +207,12 @@ public:
 
 	bool HasValue(char *&Str)
 	{
-		if (Value AND
-			Type AND
-			Type->Base AND
+		if (Value.Type != GV_NULL &&
+			Type &&
+			Type->Base &&
 			((Type->Base->Type == TypeChar) || (Type->Base->Type == TypeStrZ)))
 		{
-			Str = Value;
+			Str = Value.Str();
 			return true;
 		}
 
@@ -223,18 +221,19 @@ public:
 
 	bool HasValue(int &Val)
 	{
-		if (Value AND
-			Type AND
-			Type->Base AND
+		if (!Value.IsNull() &&
+			Type &&
+			Type->Base &&
 			Type->Base->Type == TypeInt)
 		{
-			if (strnicmp(Value, "0x", 2) == 0)
+			char *v = Value.Str();
+			if (strnicmp(v, "0x", 2) == 0)
 			{
-				Val = htoi(Value + 2);
+				Val = htoi(v + 2);
 			}
 			else
 			{
-				Val = atoi(Value);
+				Val = Value.CastInt32();
 			}
 			return true;
 		}
@@ -244,9 +243,9 @@ public:
 
 	bool HasValue(float &Val)
 	{
-		if (Value)
+		if (!Value.IsNull())
 		{
-			Val = atof(Value);
+			Val = Value.CastDouble();
 			return true;
 		}
 
@@ -256,9 +255,9 @@ public:
 
 	bool HasValue(double &Val)
 	{
-		if (Value)
+		if (!Value.IsNull())
 		{
-			Val = atof(Value);
+			Val = Value.CastDouble();
 			return true;
 		}
 
@@ -532,14 +531,14 @@ public:
 	{
 		bool Status = false;
 
-		if (Data AND Len > 0)
+		if (Data && Len > 0)
 		{
 			for (int i=0; i<Vars.Length(); i++)
 			{
 				VarDef *d = Vars[i];
 				if (d->Type->Base)
 				{
-					if (d->Type AND
+					if (d->Type &&
 						d->Type->Base)
 					{
 						if ((d->Type->Base->Type == TypeChar) || (d->Type->Base->Type == TypeStrZ))
@@ -547,7 +546,7 @@ public:
 							char *Str = 0;
 							if (d->HasValue(Str))
 							{
-								if (Str AND strnicmp(Data, Str, strlen(Str)) != 0)
+								if (Str && strnicmp(Data, Str, strlen(Str)) != 0)
 								{
 									return false;
 								}
@@ -640,7 +639,7 @@ public:
 		{
 			for (int i=0; i<Compiled.Length(); i++)
 			{
-				if (Compiled[i]->Name AND
+				if (Compiled[i]->Name &&
 					stricmp(Compiled[i]->Name, Name) == 0)
 				{
 					return Compiled[i];
@@ -676,7 +675,7 @@ public:
 		int n = 0;
 		for (; n<ProcessedElements; n++)
 		{
-			if (CurStructDef->Vars[n]->Name AND
+			if (CurStructDef->Vars[n]->Name &&
 				stricmp(CurStructDef->Vars[n]->Name, Name) == 0)
 			{
 				Ref = CurStructDef->Vars[n];
@@ -694,10 +693,9 @@ public:
 	}
 	
 	template<typename T>
-	T *DisplayString(T *str, int bytes)
+	T *DisplayString(T *str, int chars)
 	{
 		GArray<T> out;
-		int chars = bytes / sizeof(T);
 		for (int i=0; i<chars; i++)
 		{
 			switch (str[i])
@@ -783,7 +781,7 @@ public:
 						else if (isalpha(*d->Type->Length))
 						{
 							int Pad = 0;
-							if (strnicmp(d->Type->Length, "Pad", 3) == 0 AND
+							if (strnicmp(d->Type->Length, "Pad", 3) == 0 &&
 								(Pad = atoi(d->Type->Length + 3)) > 0)
 							{
 								// Padding
@@ -819,7 +817,7 @@ public:
 								int n=0;
 								for (; n<i; n++)
 								{
-									if (s->Vars[n]->Name AND
+									if (s->Vars[n]->Name &&
 										stricmp(s->Vars[n]->Name, d->Type->Length) == 0)
 									{
 										Ref = s->Vars[n];
@@ -861,7 +859,7 @@ public:
 								Out.Print(" = ");
 						}
 						
-						for (int n=0; n<Length AND Len >= b->Bytes; n++)
+						for (int n=0; n<Length && Len >= b->Bytes; n++)
 						{
 							if (!d->Hidden)
 							{
@@ -958,7 +956,7 @@ public:
 								Out.Print(" = ");
 						}
 						
-						for (int n=0; n<Length AND Len >= b->Bytes; n++)
+						for (int n=0; n<Length && Len >= b->Bytes; n++)
 						{
 							if (!d->Hidden)
 							{
@@ -1049,7 +1047,7 @@ public:
 								Out.Print(" = ");
 						}
 						
-						for (int n=0; n<Length AND Len >= b->Bytes; n++)
+						for (int n=0; n<Length && Len >= b->Bytes; n++)
 						{
 							if (!d->Hidden)
 							{
@@ -1122,9 +1120,9 @@ public:
 								char *u = DisplayString(Data, Length);
 
 								Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
-								if (u AND d->Value)
+								if (u && d->Value.Str())
 								{
-									if (strnicmp(u, d->Value, Length) != 0)
+									if (strnicmp(u, d->Value.Str(), Length) != 0)
 									{
 										Out.Print("%sValue Mismatch!\n", Tabs);
 										DeleteArray(u);
@@ -1136,7 +1134,7 @@ public:
 							else if (d->Type->Base->Bytes == 2)
 							{
 								char16 *w = new char16[Length+1];
-								char *u = 0;
+								char16 *u = 0;
 								if (w)
 								{
 									char16 *Src = (char16*)Data;
@@ -1146,14 +1144,15 @@ public:
 									}
 									w[Length] = 0;
 
-									u = LgiNewUtf16To8(w);
+									// u = LgiNewUtf16To8(w);
+									u = DisplayString(w, Length);
 								}
 								DeleteArray(w);
 
 								Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
-								if (d->Value)
+								if (d->Value.WStr())
 								{
-									if (strnicmp(u, d->Value, Length) != 0)
+									if (StrnicmpW(u, d->Value.WStr(), Length) != 0)
 									{
 										Out.Print("%sValue Mismatch!\n", Tabs);
 										DeleteArray(u);
@@ -1170,7 +1169,7 @@ public:
 					}
 					case TypeStrZ:
 					{
-						if (!d->Hidden AND (d->Type->Base->Bytes < 8))
+						if (!d->Hidden && (d->Type->Base->Bytes < 8))
 						{
 							Out.Print("%s%s", Tabs, d->Name);
 							if (Length > 1)
@@ -1178,9 +1177,9 @@ public:
 							else
 								Out.Print(" = ");
 						}
-						for (int n=0; n<Length AND Len >= d->Type->Base->Bytes; n++)
+						for (int n=0; n<Length && Len >= d->Type->Base->Bytes; n++)
 						{
-							if (!d->Hidden AND (d->Type->Base->Bytes < 8))
+							if (!d->Hidden && (d->Type->Base->Bytes < 8))
 							{
 								if (Length > 1)
 									Out.Print("\t%s[%i] = ", Tabs, n);
@@ -1196,9 +1195,9 @@ public:
 								if (!d->Hidden)
 								{
 									Out.Print("'%s'\n", u);
-									if (u AND d->Value)
+									if (u && d->Value.Str())
 									{
-										if (strnicmp(u, d->Value, zstringLen) != 0)
+										if (strnicmp(u, d->Value.Str(), zstringLen) != 0)
 										{
 											Out.Print("%sValue Mismatch!\n", Tabs);
 											DeleteArray(u);
@@ -1232,9 +1231,9 @@ public:
 								if (!d->Hidden)
 								{
 									Out.Print("'%s'\n", u);
-									if (d->Value)
+									if (d->Value.Str())
 									{
-										if (strnicmp(u, d->Value, zstringLen) != 0)
+										if (strnicmp(u, d->Value.Str(), zstringLen) != 0)
 										{
 											Out.Print("%sValue Mismatch!\n", Tabs);
 											DeleteArray(u);
@@ -1267,7 +1266,7 @@ public:
 				if (Length == 1)
 					Out.Print("%s{\n", Tabs);
 				
-				for (int i=0; (Length < 0 || i < Length) AND Len > 0; i++)
+				for (int i=0; (Length < 0 || i < Length) && Len > 0; i++)
 				{
 					StructDef *s = d->Type->Cmplex;
 					if (s->Children.Length() > 0)
@@ -1346,7 +1345,7 @@ public:
 	
 	char *GetBody()
 	{
-		if (!Body AND File)
+		if (!Body && File)
 		{
 			Body = ReadTextFile(File);
 		}
@@ -1523,7 +1522,7 @@ public:
 			
 			#ifndef __GNUC__
 			#define CheckTok(lit) \
-				if (!(t AND StricmpW(t, L##lit) == 0)) \
+				if (!(t && StricmpW(t, L##lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '" ##lit "', got '%s'", u); \
@@ -1534,7 +1533,7 @@ public:
 				}
 			#else
 			#define CheckTok(lit) \
-				if (!(t AND XCmp(t, lit) == 0)) \
+				if (!(t && XCmp(t, lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '%s', got '%s'", lit, u); \
@@ -1581,7 +1580,7 @@ public:
 						DoType:
 
 						bool IsHidden = false;
-						if (t AND XCmp(t, "hidden") == 0)
+						if (t && XCmp(t, "hidden") == 0)
 						{
 							IsHidden = true;
 							NextTok();
@@ -1650,14 +1649,14 @@ public:
 											Var->Type->Length = NewStr("");
 									}
 
-									if (t AND XCmp(t, "=") == 0)
+									if (t && XCmp(t, "=") == 0)
 									{
 										// Constraint
 										Var->Value = TrimStr(To8(LexCpp(s)), "\"\'");
 										NextTok();
 									}
 									
-									if (t AND XCmp(t, ";") == 0)
+									if (t && XCmp(t, ";") == 0)
 									{
 									}
 									else
@@ -1813,12 +1812,12 @@ public:
 						{
 							Map = new StructureMap(App, p);
 						}
-						if (Map AND Lst)
+						if (Map && Lst)
 						{
 							Lst->Insert(Map);
 						}
 					}
-					if (Map AND Txt)
+					if (Map && Txt)
 					{
 						Map->SetBody(Txt->Name());
 						Map->Compile();
@@ -1936,7 +1935,7 @@ int GVisualiseView::OnNotify(GViewI *c, int f)
 		case IDM_DELETE:
 		{
 			List<GListItem> Sel;
-			if (Map->Lst AND Map->Lst->GetSelection(Sel))
+			if (Map->Lst && Map->Lst->GetSelection(Sel))
 			{
 				for (GListItem *i=Sel.First(); i; i=Sel.Next())
 				{
@@ -1953,7 +1952,7 @@ int GVisualiseView::OnNotify(GViewI *c, int f)
 		case IDM_COMPILE:
 		{
 			List<GListItem> Sel;
-			if (Map->Lst AND Map->Lst->GetSelection(Sel))
+			if (Map->Lst && Map->Lst->GetSelection(Sel))
 			{
 				for (GListItem *i=Sel.First(); i; i=Sel.Next())
 				{
