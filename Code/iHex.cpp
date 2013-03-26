@@ -371,7 +371,7 @@ public:
 	void OnMouseMove(GMouse &m);
 	void OnFocus(bool f);
 	bool OnKey(GKey &k);
-	void OnMouseWheel(double Lines);
+	bool OnMouseWheel(double Lines);
 	void OnPulse();
 	void OnCreate() { SetPulse(500); }
 };
@@ -2227,13 +2227,14 @@ void GHexView::OnPaint(GSurface *pDC)
 				}
 */
 
-void GHexView::OnMouseWheel(double Lines)
+bool GHexView::OnMouseWheel(double Lines)
 {
 	if (VScroll)
 	{
 		VScroll->Value(VScroll->Value() + (int)Lines);
 		Invalidate();
 	}
+	return true;
 }
 
 bool GHexView::GetCursorFromLoc(int x, int y, int64 &Cur, int &Nib)
