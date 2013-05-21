@@ -1,0 +1,94 @@
+struct StartOfImage
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xd8;
+};
+
+struct Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker;
+	uint16 BlockLen;
+	char Data[BlockLen-2];
+};
+
+struct APP0 : inherits Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xe0;
+	uint16 Len;
+	char Id[5];
+	uint16 Version;
+	uint8 Units;
+	uint16 DpiX;
+	uint16 DpiY;
+	uint8 ThumbX;
+	uint8 ThumbY;
+};
+
+struct Comp
+{
+	uint8 Ident;
+	uint8 SampFactor;
+	uint8 QTableSelect;
+};
+
+struct StartOfFrameBaseline : inherits Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xc0;
+	uint16 FrameLen;
+	uint8 SampPrec;
+	uint16 Height;
+	uint16 Width;
+	uint8 Components;
+	Comp Component[Components];
+};
+
+struct StartOfFrameExtSeq : inherits Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xc1;
+	uint16 FrameLen;
+	uint8 SampPrec;
+	uint16 Height;
+	uint16 Width;
+	uint8 Components;
+	Comp Component[Components];
+};
+
+struct StartOfFrameProgressive : inherits Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xc2;
+	uint16 FrameLen;
+	uint8 SampPrec;
+	uint16 Height;
+	uint16 Width;
+	uint8 Components;
+	Comp Component[Components];
+};
+
+struct ScanComp
+{
+	uint8 CompSelect;
+	uint8 TableSelect;
+};
+
+struct StartOfScan : inherits Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xda;
+	uint16 FrameLen;
+	uint8 Components;
+	ScanComp ScanComps[Components];
+	uint8 Ss;
+	uint8 Se;
+	uint8 AhAl;
+};
+
+struct Main
+{
+	StartOfImage SOI;
+	Block Blocks[];
+};

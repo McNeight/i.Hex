@@ -1891,13 +1891,8 @@ GVisualiseView::GVisualiseView(AppWnd *app)
 	SetViewA(Map = new GMapWnd, false);
 	SetViewB(Txt = new GTextView3(80, 0, 0, 100, 100), true);
 	
-	if (LgiGetExePath(Base, sizeof(Base)))
+	if (LgiGetSystemPath(LSP_APP_INSTALL, Base, sizeof(Base)))
 	{
-		#ifdef WIN32
-		if (stristr(Base, "\\Release") || stristr(Base, "\\Debug"))
-			LgiTrimDir(Base);
-		#endif
-
 		GArray<char*> Files;
 		GArray<const char*> Ext;
 		Ext.Add("*.map");
