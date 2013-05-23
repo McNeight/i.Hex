@@ -766,6 +766,9 @@ public:
 					}
 					else
 					{
+						#if 1
+						Out.Print("Error: evaluating the expression '%s'\n", d->Type->Length);
+						#else
 						// Fall back code: this should never run.... but it's useful to 
 						// have around as a reference.
 						if (strnicmp(d->Type->Length, "0x", 2) == 0)
@@ -831,6 +834,7 @@ public:
 								}
 							}
 						}
+						#endif
 					}
 				}
 			}

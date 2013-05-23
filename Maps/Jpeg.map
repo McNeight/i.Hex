@@ -87,6 +87,14 @@ struct StartOfScan : inherits Block
 	uint8 AhAl;
 };
 
+struct QTables : inherits Block
+{
+	uint8 Code = 0xff;
+	uint8 Marker = 0xdb;
+	uint16 FrameLen;	
+	char Data[FrameLen-2];
+};
+
 struct Main
 {
 	StartOfImage SOI;

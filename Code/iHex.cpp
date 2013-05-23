@@ -491,6 +491,14 @@ void IHexBar::SetOffset(int64 Offset)
 	if (GetCtrlValue(IDC_IS_HEX))
 	{
 		char s[64];
+		
+		#if 1
+		int ch = 0;
+		if (Offset >> 32)
+			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", Offset >> 32);
+		ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", Offset);
+		#else
+		// What is the point of this code?
 		char *c = s;
 		for (int i=0; i<16; i++)
 		{
@@ -501,6 +509,7 @@ void IHexBar::SetOffset(int64 Offset)
 			}
 		}
 		*c++ = 0;
+		#endif
 
 		SetCtrlName(IDC_OFFSET, s);
 	}
