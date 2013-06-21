@@ -855,7 +855,9 @@ void GHexView::Copy()
 		}
 		GAutoString str(p.NewStr());
 	
+		#ifdef WIN32
 		c.Binary(CF_PRIVATEFIRST, Ptr, Len, true);
+		#endif
 		c.Text(str, false);
 	}
 }
@@ -866,6 +868,7 @@ void GHexView::Paste()
 
 	GAutoPtr<uint8> Ptr;
 	int Len = 0;
+	#ifdef WIN32
 	if (c.Binary(CF_PRIVATEFIRST, Ptr, &Len))
 	{
 		if (GetData(Cursor, Len))
@@ -876,6 +879,7 @@ void GHexView::Paste()
 			DoInfo();
 		}	
 	}
+	#endif
 }
 
 void GHexView::SetScroll()
@@ -2685,9 +2689,8 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 		OnDirty(false);
 		
 		#ifdef LINUX
-		char *f = LgiFindFile("icon-32x32.png");
-		if (f) Handle()->setIcon(f);
-		DeleteArray(f);
+		GAutoString f(LgiFindFile("icon-32x32.png"));
+		printf("Fixme: add icon to window here...\n");
 		#endif
 		
 		Visible(true);

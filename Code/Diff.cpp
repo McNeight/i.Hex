@@ -31,10 +31,12 @@ GArray<Diff::Item> Diff::DiffText(char *TextA, char *TextB, bool trimSpace, bool
 	Hashtable h((strlen(TextA) + strlen(TextB)) * 3, false, NULL, -1);
 
 	// The A-Version of the data (original data) to be compared.
-	DiffData<int> DataA(DiffCodes(TextA, h, trimSpace, ignoreSpace, ignoreCase));
+	GArray<int> dc = DiffCodes(TextA, h, trimSpace, ignoreSpace, ignoreCase);
+	DiffData<int> DataA(dc);
 
 	// The B-Version of the data (modified data) to be compared.
-	DiffData<int> DataB(DiffCodes(TextB, h, trimSpace, ignoreSpace, ignoreCase));
+	dc = DiffCodes(TextB, h, trimSpace, ignoreSpace, ignoreCase);
+	DiffData<int> DataB(dc);
 
 	h.Empty(); // free up hashtable memory (maybe)
 

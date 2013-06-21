@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Project>
+	<Node Name="Source" Type="1" Platforms="15" Open="1">
+		<Node Name="Lgi" Type="1" Platforms="15" Open="1">
+			<Node File="../../Lgi/trunk/src/common/Lgi/GAbout.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Lgi/GDocApp.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Gdc2/Filters/Gif.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Lgi/LgiMain.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Gdc2/Filters/Lzw.cpp" Type="2" Platforms="15" />
+		</Node>
+		<Node Name="Scripting" Type="1" Platforms="15" Open="1">
+			<Node File="../../Lgi/trunk/src/common/Coding/GLexCpp.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Coding/GScriptCompiler.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Coding/GScripting.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Coding/GScriptingPriv.h" Type="3" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Coding/GScriptLibrary.cpp" Type="2" Platforms="15" />
+			<Node File="../../Lgi/trunk/src/common/Coding/GScriptVM.cpp" Type="2" Platforms="15" />
+		</Node>
+		<Node File="./Code/Diff.cpp" Type="2" Platforms="15" />
+		<Node File="./Code/iHex.cpp" Type="2" Platforms="15" />
+		<Node File="./Code/SearchDlg.cpp" Type="2" Platforms="15" />
+		<Node File="./Code/Visualiser.cpp" Type="2" Platforms="15" />
+	</Node>
+	<Node Name="Headers" Type="1" Platforms="15" Open="1">
+		<Node File="./Code/Diff.h" Type="3" Platforms="15" />
+		<Node File="./Code/iHex.h" Type="3" Platforms="15" />
+	</Node>
+	<Node File="../../Lgi/trunk/Lgi.xml" Type="4" Platforms="15" />
+	<Settings>
+		<General>
+			<Makefile>
+				<Linux>./Makefile.linux</Linux>
+			</Makefile>
+			<Compiler>
+				<Linux>gcc</Linux>
+			</Compiler>
+			<Executable />
+			<Arguments />
+			<Defines />
+		</General>
+		<Build>
+			<IncludePaths>
+				<All>
+					<Debug>../../Lgi/trunk/include/common</Debug>
+					<Release>../../Lgi/trunk/include/common</Release>
+				</All>
+				<Linux>
+					<Debug>../../Lgi/trunk/include/linux/Gtk
+`pkg-config --cflags gtk+-2.0`</Debug>
+					<Release>../../Lgi/trunk/include/linux/Gtk
+`pkg-config --cflags gtk+-2.0`</Release>
+				</Linux>
+			</IncludePaths>
+			<TargetType>
+				<All>Executable</All>
+			</TargetType>
+			<TargetName>
+				<Linux>
+					<Debug>iHex</Debug>
+					<Release>iHex</Release>
+				</Linux>
+			</TargetName>
+			<Libraries />
+			<LibraryPaths />
+		</Build>
+		<Editor>
+			<TabSize>
+				<All>4</All>
+			</TabSize>
+			<IndentSize>
+				<All>4</All>
+			</IndentSize>
+			<UseHardTabs>
+				<All>0</All>
+			</UseHardTabs>
+		</Editor>
+		<Advanced />
+	</Settings>
+</Project>
