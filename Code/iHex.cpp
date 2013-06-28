@@ -16,6 +16,7 @@
 #include "GCombo.h"
 #include "GScrollBar.h"
 #include "GProgressDlg.h"
+#include "GDisplayString.h"
 #ifdef WIN32
 #include "wincrypt.h"
 #endif
