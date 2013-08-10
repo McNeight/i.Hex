@@ -1,4 +1,5 @@
 #include "Diff.h"
+#include "string.h"
 
 /// <summary>
 /// Find the difference in 2 texts, comparing by textlines.
