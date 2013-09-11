@@ -3179,7 +3179,7 @@ bool AppWnd::SaveFile(char *FileName)
 //////////////////////////////////////////////////////////////////
 int LgiMain(OsAppArguments &AppArgs)
 {
-	GApp a("application/x-i.Hex", AppArgs);
+	GApp a(AppArgs, "i.Hex");
 	if (a.IsOk())
 	{
 		extern void DiffTest();
