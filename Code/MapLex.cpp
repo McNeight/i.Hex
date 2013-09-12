@@ -2,8 +2,8 @@
 #include <ctype.h>
 
 char *White = " \r\t\n";
-#define iswhite(s)		(s AND strchr(White, s) != 0)
-#define isword(s)		(s AND (isdigit(s) || isalpha(s) || (s) == '_') )
+#define iswhite(s)		(s && strchr(White, s) != 0)
+#define isword(s)		(s && (isdigit(s) || isalpha(s) || (s) == '_') )
 #define skipws(s)		while (iswhite(*s)) s++;
 #define SubPtr(a, b)	((a)-(b))
 
@@ -33,7 +33,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         while (*s)
         {
             s++;
-            if (*s == '\n' AND Nwsp != '\\')
+            if (*s == '\n' && Nwsp != '\\')
             {
             	break;
             }
@@ -52,7 +52,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         while
         (
             *s
-            AND
+            &&
             (
                 *s == '_'
                 ||
@@ -68,7 +68,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         }
         Status = ReturnString ? NewStrW(Start, SubPtr(s, Start)) : 0;
     }
-    else if (s[0] == '/' AND s[1] == '/')
+    else if (s[0] == '/' && s[1] == '/')
     {
         // C++ Comment
         s = StrchrW(s, '\n');
@@ -78,7 +78,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
             goto LexAgain;
         }
     }
-    else if (s[0] == '/' AND s[1] == '*')
+    else if (s[0] == '/' && s[1] == '*')
     {
         // C comment
         s += 2;
@@ -93,31 +93,31 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
     }
     else if
     (
-        (s[0] == '-' AND s[1] == '>')
+        (s[0] == '-' && s[1] == '>')
         ||
-        (s[0] == '|' AND s[1] == '|')
+        (s[0] == '|' && s[1] == '|')
         ||
-        (s[0] == '&' AND s[1] == '&')
+        (s[0] == '&' && s[1] == '&')
         ||
-        (s[0] == '+' AND s[1] == '+')
+        (s[0] == '+' && s[1] == '+')
         ||
-        (s[0] == '-' AND s[1] == '-')
+        (s[0] == '-' && s[1] == '-')
         ||
-        (s[0] == '/' AND s[1] == '=')
+        (s[0] == '/' && s[1] == '=')
         ||
-        (s[0] == '-' AND s[1] == '=')
+        (s[0] == '-' && s[1] == '=')
         ||
-        (s[0] == '*' AND s[1] == '=')
+        (s[0] == '*' && s[1] == '=')
         ||
-        (s[0] == '+' AND s[1] == '=')
+        (s[0] == '+' && s[1] == '=')
         ||
-        (s[0] == '^' AND s[1] == '=')
+        (s[0] == '^' && s[1] == '=')
         ||
-        (s[0] == '>' AND s[1] == '=')
+        (s[0] == '>' && s[1] == '=')
         ||
-        (s[0] == '<' AND s[1] == '=')
+        (s[0] == '<' && s[1] == '=')
         ||
-        (s[0] == '-' AND s[1] == '>')
+        (s[0] == '-' && s[1] == '>')
     )
     {
         // 2 char delimiter
@@ -139,7 +139,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         while
         (
             *s
-            AND
+            &&
             (
                 *s == '-'
                 ||
@@ -149,7 +149,7 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
                 ||
                 isdigit(*s)
 				||
-				(Hex AND StrchrW(HexChars, *s))
+				(Hex && StrchrW(HexChars, *s))
             )
         )
         {
@@ -157,12 +157,12 @@ char16 *LexCpp(char16 *&s, bool ReturnString = true)
         }
         Status = ReturnString ? NewStrW(Start, SubPtr(s, Start)) : 0;
     }
-    else if (*s AND strchr("()*[]&,{};:=!<>?.\\+/%^|~", *s))
+    else if (*s && strchr("()*[]&,{};:=!<>?.\\+/%^|~", *s))
     {
         // Delimiter
         Status = ReturnString ? NewStrW(s++, 1) : 0;
     }
-    else if (*s AND strchr("\"\'", *s))
+    else if (*s && strchr("\"\'", *s))
     {
         // String
         char16 Delim = *s;

@@ -61,11 +61,11 @@ int SearchDlg::OnNotify(GViewI *c, int f)
 					{
 						if
 						(
-							(*s >= '0' AND *s <= '9')
+							(*s >= '0' && *s <= '9')
 							||
-							(*s >= 'a' AND *s <= 'f')
+							(*s >= 'a' && *s <= 'f')
 							||
-							(*s >= 'A' AND *s <= 'F')
+							(*s >= 'A' && *s <= 'F')
 						)
 						{
 							h[i++] = *s;
