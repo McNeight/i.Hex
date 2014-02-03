@@ -237,6 +237,10 @@
 				Name="Scripting"
 				>
 				<File
+					RelativePath="..\..\Lgi\trunk\src\common\Coding\GLexCpp.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\..\Lgi\trunk\src\common\Coding\GScripting.cpp"
 					>
 				</File>
