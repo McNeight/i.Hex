@@ -2762,7 +2762,6 @@ int AppWnd::OnNotify(GViewI *Ctrl, int Flags)
 				int Len;
 				if (Visual && Doc->GetDataAtCursor(Data, Len))
 				{
-					LgiTrace("Len=%i\n", Len);
 					Visual->Visualise(Data, Len, GetCtrlValue(IDC_LITTLE) );
 				}
 				if (TextView && Doc->GetDataAtCursor(Data, Len))

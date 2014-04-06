@@ -522,9 +522,42 @@ public:
 		int Size = 0;
 		for (int i=0; i<Vars.Length(); i++)
 		{
-			Size = Vars[i]->Sizeof();
+			Size += Vars[i]->Sizeof();
 		}
 		return Size;
+	}
+	
+	StructDef *GetStruct(const char *n)
+	{
+		if (Name && !stricmp(Name, n))
+			return this;
+
+		for (int i=0; i<Children.Length(); i++)
+		{
+			StructDef *s = Children[i]->GetStruct(n);
+			if (s)
+				return s;
+		}
+		return NULL;
+	}
+
+	StructDef *MatchChild(char *Data, int Len, bool Little)
+	{
+		if (Children.Length() == 0)
+			return NULL;
+
+		// Check to see if any child struct specializations match
+		for (int c=0; c<Children.Length(); c++)
+		{
+			char *d = Data;
+			int l = Len;
+			if (Children[c]->Match(d, l, Little))
+			{
+				return Children[c];
+			}
+		}
+
+		return NULL;
 	}
 
 	bool Match(char *&Data, int &Len, bool Little)
@@ -558,7 +591,8 @@ public:
 							int Val = 0;
 							if (d->HasValue(Val))
 							{
-								if (d->CastInt(Data, Little) != Val)
+								uint32 i = d->CastInt(Data, Little);
+								if (i != Val)
 								{
 									return false;
 								}
@@ -570,7 +604,8 @@ public:
 							float Val = 0;
 							if (d->HasValue(Val))
 							{
-								if (d->CastFloat(Data, Little) != Val)
+								float f = d->CastFloat(Data, Little);
+								if (f != Val)
 								{
 									return false;
 								}
@@ -639,11 +674,9 @@ public:
 		{
 			for (int i=0; i<Compiled.Length(); i++)
 			{
-				if (Compiled[i]->Name &&
-					stricmp(Compiled[i]->Name, Name) == 0)
-				{
-					return Compiled[i];
-				}
+				StructDef *s = Compiled[i]->GetStruct(Name);
+				if (s)
+					return s;
 			}
 		}
 		return 0;
@@ -710,7 +743,7 @@ public:
 					if (str[i] < ' ' || str[i] >= 0x7f)
 					{
 						char hex[16];
-						int ch = sprintf_s(hex, sizeof(hex), "\\x%x", str[i]);
+						int ch = sprintf_s(hex, sizeof(hex), "\\x%x", (uint8)str[i]);
 						for (int c=0; c<ch; c++)
 							out.Add(hex[c]);
 					}
@@ -937,7 +970,8 @@ public:
 							int Val = 0;
 							if (d->HasValue(Val))
 							{
-								if (d->CastInt(Data, Little) != Val)
+								int i = d->CastInt(Data, Little);
+								if (i != Val)
 								{
 									Out.Print("%sValue Mismatch!\n", Tabs);
 									return false;
@@ -1266,27 +1300,24 @@ public:
 			}
 			else if (d->Type->Cmplex)
 			{
-				Out.Print("%s%s (@ %i/0x%x) =\n", Tabs, d->Name, Data-Base, Data-Base);
+				StructDef *s = d->Type->Cmplex;
+				StructDef *sub = s->MatchChild(Data, Len, Little);
+
+				if (sub)
+					Out.Print("%s%s.%s (@ %i/0x%x) =\n", Tabs, sub->Name, d->Name, Data-Base, Data-Base);
+				else
+					Out.Print("%s%s (@ %i/0x%x) =\n", Tabs, d->Name, Data-Base, Data-Base);
+				
 				if (Length == 1)
 					Out.Print("%s{\n", Tabs);
 				
 				for (int i=0; (Length < 0 || i < Length) && Len > 0; i++)
 				{
-					StructDef *s = d->Type->Cmplex;
-					if (s->Children.Length() > 0)
-					{
-						// Check to see if any child struct specializations match
-						for (int c=0; c<s->Children.Length(); c++)
-						{
-							char *d = Data;
-							int l = Len;
-							if (s->Children[c]->Match(d, l, Little))
-							{
-								s = s->Children[c];
-								break;
-							}
-						}
-					}
+					s = d->Type->Cmplex;
+					if (i)
+						sub = s->MatchChild(Data, Len, Little);
+					if (sub)
+						s = sub;
 
 					if (Length != 1)
 						Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name, Data-Base, Data-Base);
