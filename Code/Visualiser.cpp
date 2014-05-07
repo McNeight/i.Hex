@@ -1363,7 +1363,7 @@ public:
 		if (f)
 		{
 			char s[256];
-			strsafecpy(s, d + 1, sizeof(s));
+			strcpy_s(s, sizeof(s), d + 1);
 			d = strrchr(s, '.');
 			if (d) *d = 0;
 			SetText(s);
