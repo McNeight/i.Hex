@@ -783,7 +783,7 @@ public:
 				else
 				{
 					// Evaluate expression
-					GScriptEngine1 e(App, App);
+					GScriptEngine2 e(App, App);
 					GVariant v;
 					ProcessedElements = i;
 					if (e.EvaluateExpression(&v, this, d->Type->Length))
