@@ -342,7 +342,7 @@ public:
 	void SelectionFillRandom(GStream *Rnd);
 	void CompareFile(char *File);
 
-	void Copy();
+	void Copy(bool AsHex);
 	void Paste();
 
 	bool HasSelection() { return Select >= 0; }
@@ -831,7 +831,7 @@ void GHexView::SetIsHex(bool i)
 	}
 }
 
-void GHexView::Copy()
+void GHexView::Copy(bool AsHex)
 {
 	GClipBoard c(this);
 
@@ -852,7 +852,10 @@ void GHexView::Copy()
 		GStringPipe p;
 		for (int i=0; i<Len; i++)
 		{
-			p.Print("%s%2.2X", i ? " " : "", Ptr[i]);
+			if (AsHex)
+				p.Print("%s%2.2X", i ? " " : "", Ptr[i]);
+			else
+				p.Print("%c", Ptr[i]);
 		}
 		GAutoString str(p.NewStr());
 	
@@ -2637,7 +2640,8 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 			GSubMenu *Tools = Menu->AppendSub("&Tools");
 			if (Tools)
 			{
-				Tools->AppendItem("Copy", IDM_COPY, true, -1, "Ctrl+C");
+				Tools->AppendItem("Copy Hex", IDM_COPY_HEX, true, -1, "Ctrl+C");
+				Tools->AppendItem("Copy Text", IDM_COPY_TEXT, true, -1, "Ctrl+Shift+C");
 				Tools->AppendItem("Paste", IDM_PASTE, true, -1, "Ctrl+V");
 				Tools->AppendSeparator();
 
@@ -2879,9 +2883,14 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 {
 	switch (Cmd)
 	{
-		case IDM_COPY:
+		case IDM_COPY_HEX:
 		{
-			Doc->Copy();
+			Doc->Copy(true);
+			break;
+		}
+		case IDM_COPY_TEXT:
+		{
+			Doc->Copy(false);
 			break;
 		}
 		case IDM_PASTE:
