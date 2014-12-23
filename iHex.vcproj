@@ -245,6 +245,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\Lgi\trunk\include\common\GScripting.h"
+					>
+				</File>
+				<File
+					RelativePath="..\..\Lgi\trunk\src\common\Coding\GScriptingPriv.h"
+					>
+				</File>
+				<File
 					RelativePath="..\..\Lgi\trunk\src\common\Coding\GScriptLibrary.cpp"
 					>
 				</File>
