@@ -1947,7 +1947,7 @@ int GVisualiseView::OnNotify(GViewI *c, int f)
 	{
 		case IDC_LIST:
 		{
-			if (f == GLIST_NOTIFY_DBL_CLICK)
+			if (f == GITEM_NOTIFY_DBL_CLICK)
 			{
 				StructureMap *s = dynamic_cast<StructureMap*>(Map->Lst->GetSelected());
 				if (s)
