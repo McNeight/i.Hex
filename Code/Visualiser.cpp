@@ -5,10 +5,10 @@
 #include "GUtf8.h"
 #include "resdefs.h"
 
-int XCmp(char16 *w, char *utf, int Len = -1)
+int XCmp(char16 *w, const char *utf, int Len = -1)
 {
 	int Status = -1;
-	GUtf8Ptr a(utf);
+	GUtf8Ptr a((char*)utf);
 
 	if (w && a)
 	{
@@ -668,7 +668,7 @@ class StructureMap : public GListItem, public GDom
 public:
 	GArray<StructDef*> Compiled;
 
-	StructDef *GetStruct(char *Name)
+	StructDef *GetStruct(const char *Name)
 	{
 		if (Name)
 		{
@@ -1406,7 +1406,7 @@ public:
 		}
 	}
 
-	void Err(char16 *Cur, char16 *Start, char *Msg)
+	void Err(char16 *Cur, char16 *Start, const char *Msg)
 	{
 		int Line = 1;
 		while (Cur > Start)

@@ -24,16 +24,26 @@
 		342D52BC0F0CBA9F002A1C7C /* GScriptCompiler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52B70F0CBA9F002A1C7C /* GScriptCompiler.cpp */; };
 		342D52BD0F0CBA9F002A1C7C /* GScriptLibrary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52B90F0CBA9F002A1C7C /* GScriptLibrary.cpp */; };
 		342D52BE0F0CBA9F002A1C7C /* GScriptVM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52BA0F0CBA9F002A1C7C /* GScriptVM.cpp */; };
-		342D52C90F0CBAD4002A1C7C /* GScripting.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52C80F0CBAD4002A1C7C /* GScripting.cpp */; };
 		342D52DB0F0CBAFF002A1C7C /* Gif.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52D90F0CBAFF002A1C7C /* Gif.cpp */; };
 		342D52DC0F0CBAFF002A1C7C /* Lzw.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52DA0F0CBAFF002A1C7C /* Lzw.cpp */; };
 		34640D6D12D5DE7400B207F4 /* iHexIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 34640D6C12D5DE7400B207F4 /* iHexIcon.icns */; };
-		34640DEE12D5EF5F00B207F4 /* Lgi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34640DED12D5EF5F00B207F4 /* Lgi.framework */; };
-		34640DEF12D5EF6700B207F4 /* Lgi.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 34640DED12D5EF5F00B207F4 /* Lgi.framework */; };
+		348335D41AA190DD006BD4F9 /* Lgi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 348335D31AA190D2006BD4F9 /* Lgi.framework */; };
+		348335D51AA190E1006BD4F9 /* Lgi.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 348335D31AA190D2006BD4F9 /* Lgi.framework */; };
+		348335D71AA197E3006BD4F9 /* GLexCpp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 348335D61AA197E3006BD4F9 /* GLexCpp.cpp */; };
 		8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */; };
 		8D0C4E8E0486CD37000505A6 /* main.nib in Resources */ = {isa = PBXBuildFile; fileRef = 02345980000FD03B11CA0E72 /* main.nib */; };
 		8D0C4E920486CD37000505A6 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20286C33FDCF999611CA2CEA /* Carbon.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		348335D21AA190D2006BD4F9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 348335CE1AA190D1006BD4F9 /* LgiCarbon.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 8DC2EF5B0486A6940098B216;
+			remoteInfo = Lgi;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		34640D3212D5D8AB00B207F4 /* CopyFiles */ = {
@@ -42,7 +52,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				34640DEF12D5EF6700B207F4 /* Lgi.framework in CopyFiles */,
+				348335D51AA190E1006BD4F9 /* Lgi.framework in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,11 +82,11 @@
 		342D52B80F0CBA9F002A1C7C /* GScriptingPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GScriptingPriv.h; path = ../../Lgi/trunk/src/common/Coding/GScriptingPriv.h; sourceTree = SOURCE_ROOT; };
 		342D52B90F0CBA9F002A1C7C /* GScriptLibrary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GScriptLibrary.cpp; path = ../../Lgi/trunk/src/common/Coding/GScriptLibrary.cpp; sourceTree = SOURCE_ROOT; };
 		342D52BA0F0CBA9F002A1C7C /* GScriptVM.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GScriptVM.cpp; path = ../../Lgi/trunk/src/common/Coding/GScriptVM.cpp; sourceTree = SOURCE_ROOT; };
-		342D52C80F0CBAD4002A1C7C /* GScripting.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GScripting.cpp; path = ../../Lgi/trunk/src/common/Coding/GScripting.cpp; sourceTree = SOURCE_ROOT; };
 		342D52D90F0CBAFF002A1C7C /* Gif.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Gif.cpp; path = ../../Lgi/trunk/src/common/Gdc2/Filters/Gif.cpp; sourceTree = SOURCE_ROOT; };
 		342D52DA0F0CBAFF002A1C7C /* Lzw.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Lzw.cpp; path = ../../Lgi/trunk/src/common/Gdc2/Filters/Lzw.cpp; sourceTree = SOURCE_ROOT; };
 		34640D6C12D5DE7400B207F4 /* iHexIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = iHexIcon.icns; sourceTree = "<group>"; };
-		34640DED12D5EF5F00B207F4 /* Lgi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Lgi.framework; path = ../../Lgi/trunk/build/Development/Lgi.framework; sourceTree = SOURCE_ROOT; };
+		348335CE1AA190D1006BD4F9 /* LgiCarbon.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = LgiCarbon.xcodeproj; path = ../../Lgi/trunk/src/mac/carbon/LgiCarbon.xcodeproj; sourceTree = "<group>"; };
+		348335D61AA197E3006BD4F9 /* GLexCpp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GLexCpp.cpp; path = ../../Lgi/trunk/src/common/Coding/GLexCpp.cpp; sourceTree = "<group>"; };
 		4A9504C8FFE6A3BC11CA0CBA /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
 		4A9504CAFFE6A41611CA0CBA /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
 		8D0C4E960486CD37000505A6 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -89,7 +99,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D0C4E920486CD37000505A6 /* Carbon.framework in Frameworks */,
-				34640DEE12D5EF5F00B207F4 /* Lgi.framework in Frameworks */,
+				348335D41AA190DD006BD4F9 /* Lgi.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -151,7 +161,7 @@
 		20286C32FDCF999611CA2CEA /* External Frameworks and Libraries */ = {
 			isa = PBXGroup;
 			children = (
-				34640DED12D5EF5F00B207F4 /* Lgi.framework */,
+				348335CE1AA190D1006BD4F9 /* LgiCarbon.xcodeproj */,
 				20286C33FDCF999611CA2CEA /* Carbon.framework */,
 				4A9504CAFFE6A41611CA0CBA /* CoreServices.framework */,
 				4A9504C8FFE6A3BC11CA0CBA /* ApplicationServices.framework */,
@@ -174,13 +184,21 @@
 		342D52B50F0CBA84002A1C7C /* Script */ = {
 			isa = PBXGroup;
 			children = (
-				342D52C80F0CBAD4002A1C7C /* GScripting.cpp */,
+				348335D61AA197E3006BD4F9 /* GLexCpp.cpp */,
 				342D52B70F0CBA9F002A1C7C /* GScriptCompiler.cpp */,
 				342D52B80F0CBA9F002A1C7C /* GScriptingPriv.h */,
 				342D52B90F0CBA9F002A1C7C /* GScriptLibrary.cpp */,
 				342D52BA0F0CBA9F002A1C7C /* GScriptVM.cpp */,
 			);
 			name = Script;
+			sourceTree = "<group>";
+		};
+		348335CF1AA190D1006BD4F9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				348335D31AA190D2006BD4F9 /* Lgi.framework */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -212,15 +230,35 @@
 			isa = PBXProject;
 			buildConfigurationList = C0E91AC908A95435008D54AB /* Build configuration list for PBXProject "i.Hex" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 20286C29FDCF999611CA2CEA /* i.Hex */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 348335CF1AA190D1006BD4F9 /* Products */;
+					ProjectRef = 348335CE1AA190D1006BD4F9 /* LgiCarbon.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				8D0C4E890486CD37000505A6 /* i.Hex */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		348335D31AA190D2006BD4F9 /* Lgi.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = Lgi.framework;
+			remoteRef = 348335D21AA190D2006BD4F9 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		8D0C4E8C0486CD37000505A6 /* Resources */ = {
@@ -257,9 +295,9 @@
 				342D52BC0F0CBA9F002A1C7C /* GScriptCompiler.cpp in Sources */,
 				342D52BD0F0CBA9F002A1C7C /* GScriptLibrary.cpp in Sources */,
 				342D52BE0F0CBA9F002A1C7C /* GScriptVM.cpp in Sources */,
-				342D52C90F0CBAD4002A1C7C /* GScripting.cpp in Sources */,
 				342D52DB0F0CBAFF002A1C7C /* Gif.cpp in Sources */,
 				342D52DC0F0CBAFF002A1C7C /* Lzw.cpp in Sources */,
+				348335D71AA197E3006BD4F9 /* GLexCpp.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -295,12 +333,8 @@
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../Lgi/build/Development\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../Lgi/trunk/build/Development\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/../../Lgi/trunk/build/Development\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = i.Hex_Prefix.pch;
@@ -308,7 +342,6 @@
 				INSTALL_PATH = "$(HOME)/Applications";
 				PRODUCT_NAME = i.Hex;
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
 			};
 			name = Debug;
 		};
@@ -325,11 +358,7 @@
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../Lgi/build/Development\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../Lgi/trunk/build/Development\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/../../Lgi/trunk/build/Development\"";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = i.Hex_Prefix.pch;
 				INFOPLIST_FILE = Info.plist;
@@ -350,10 +379,12 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					../../Lgi/trunk/include/common,
-					../../Lgi/trunk/include/mac,
+					../../Lgi/trunk/include/mac/carbon,
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = macosx;
+				VALID_ARCHS = i386;
 			};
 			name = Debug;
 		};
@@ -365,10 +396,12 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					../../Lgi/trunk/include/common,
-					../../Lgi/trunk/include/mac,
+					../../Lgi/trunk/include/mac/carbon,
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = macosx;
+				VALID_ARCHS = i386;
 			};
 			name = Release;
 		};

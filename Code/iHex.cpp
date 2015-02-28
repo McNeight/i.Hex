@@ -25,7 +25,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Application identification
-char *AppName = "i.Hex";
+const char *AppName = "i.Hex";
 bool CancelSearch = false;
 
 #define ColourSelectionFore			Rgb24(255, 255, 0)
@@ -149,11 +149,7 @@ public:
 			case 0:
 			{
 				char s[64];
-				#ifndef WIN32
-				sprintf(s, "%ld", size);
-				#else
-				sprintf(s, "%I64u", size);
-				#endif
+				sprintf(s, LGI_PrintfInt64, size);
 				SetCtrlName(IDC_NUMBER, s);
 				break;
 			}
@@ -235,11 +231,7 @@ public:
 				Size = GetBytes();
 
 				char s[64];
-				#ifdef WIN32
-				sprintf(s, "(%I64i bytes)", GetBytes());
-				#else
-				sprintf(s, "(%ld bytes)", GetBytes());
-				#endif
+				sprintf(s, "("LGI_PrintfInt64" bytes)", GetBytes());
 				SetCtrlName(IDC_BYTE_SIZE, s);
 				break;
 			}
@@ -496,8 +488,8 @@ void IHexBar::SetOffset(int64 Offset)
 		#if 1
 		int ch = 0;
 		if (Offset >> 32)
-			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", Offset >> 32);
-		ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", Offset);
+			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned) (Offset >> 32));
+		ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned)Offset);
 		#else
 		// What is the point of this code?
 		char *c = s;
@@ -871,8 +863,8 @@ void GHexView::Paste()
 	GClipBoard c(this);
 
 	GAutoPtr<uint8> Ptr;
-	int Len = 0;
 	#ifdef WIN32
+	int Len = 0;
 	if (c.Binary(CF_PRIVATEFIRST, Ptr, &Len))
 	{
 		if (GetData(Cursor, Len))
@@ -1149,7 +1141,7 @@ void GHexView::DoSearch(SearchDlg *For)
 				Time = Now;
 				if (!Prog)
 				{
-					if (Prog = new GProgressDlg(this))
+					if ((Prog = new GProgressDlg(this)))
 					{
 						Prog->SetDescription("Searching...");
 						Prog->SetLimits(0, GetFileSize());
@@ -1188,7 +1180,7 @@ void GHexView::DoSearch(SearchDlg *For)
 					Time = Now;
 					if (!Prog)
 					{
-						if (Prog = new GProgressDlg(this))
+						if ((Prog = new GProgressDlg(this)))
 						{
 							Prog->SetDescription("Searching...");
 							Prog->SetLimits(0, GetFileSize());
@@ -1348,6 +1340,7 @@ void GHexView::DoInfo()
 
 void GHexView::CompareFile(char *CmpFile)
 {
+	#if 0
 	DeleteObj(Compare);
 	CmpItems.Length(0);
 	CmpLayout.Length(0);
@@ -1470,6 +1463,7 @@ void GHexView::CompareFile(char *CmpFile)
 	}
 	
 	Invalidate();
+	#endif
 }
 
 bool GHexView::OpenFile(char *FileName, bool ReadOnly)
@@ -1752,7 +1746,7 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 				#ifdef WIN32
 				p += sprintf(p, "%11.11I64i  ", LineStart);
 				#else
-				p += sprintf(p, "%11.11li  ", LineStart);
+				p += sprintf(p, "%11.11lli  ", LineStart);
 				#endif
 			}			
 
@@ -2005,7 +1999,7 @@ void GHexView::OnPaint(GSurface *pDC)
 				#ifdef WIN32
 				p += sprintf(p, "%11.11I64i  ", LineStart);
 				#else
-				p += sprintf(p, "%11.11li  ", LineStart);
+				p += sprintf(p, "%11.11lli  ", LineStart);
 				#endif
 			}			
 			if (IsCursor)
@@ -2441,8 +2435,6 @@ bool GHexView::OnKey(GKey &k)
 				if (k.Ctrl())
 				{
 					// Find next difference
-					int Block = 16 << 10;
-
 					bool Done = false;
 					/*
 					for (int64 n = Cursor - BufPos + 1; !Done && n < Size; n += Block)
@@ -3109,7 +3101,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 	return GDocApp<GOptionsFile>::OnCommand(Cmd, Event, Wnd);
 }
 
-void AppWnd::Help(char *File)
+void AppWnd::Help(const char *File)
 {
 	char e[300];
 	if (File && LgiGetExePath(e, sizeof(e)))
@@ -3155,7 +3147,6 @@ GRect GetClient(GView *w)
 
 void AppWnd::Pour()
 {
-	GRect Client = GetClient();
 	GDocApp<GOptionsFile>::Pour();
 }
 
@@ -3190,9 +3181,6 @@ int LgiMain(OsAppArguments &AppArgs)
 	GApp a(AppArgs, "i.Hex");
 	if (a.IsOk())
 	{
-		extern void DiffTest();
-		DiffTest();
-
 		a.AppWnd = new AppWnd;
 		a.Run();
 	}

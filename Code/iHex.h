@@ -73,7 +73,7 @@ enum Controls
 #endif
 
 /////////////////////////////////////////////////////////////////////////////
-extern char *AppName;
+extern const char *AppName;
 extern char16 *LexCpp(char16 *&s, bool ReturnString = true);
 
 /////////////////////////////////////////////////////////////////////////////
@@ -129,7 +129,7 @@ public:
 	int OnNotify(GViewI *Ctrl, int Flags);
 	bool OnRequestClose(bool OsShuttingDown);
 	void OnDirty(bool NewValue);
-	void Help(char *File);
+	void Help(const char *File);
 	void OnReceiveFiles(GArray<char*> &Files);
 };
 

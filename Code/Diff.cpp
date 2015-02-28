@@ -414,10 +414,11 @@ GArray<Diff::Item> Diff::CreateDiffs(DiffData<T> &DataA, DiffData<T> &DataB)
 
 void DiffTest()
 {
+	#if 0
 	Diff d;
 
-	char *a = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl";
-	char *b = "a\nb\nc\nd\ne\nf\ng\nh\nweri\nk\nl";
+	const char *a = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl";
+	const char *b = "a\nb\nc\nd\ne\nf\ng\nh\nweri\nk\nl";
 	GArray<Diff::Item> result = d.DiffText(a, b, false, false, false);
 
 	GArray<uint8> c, e;
@@ -431,5 +432,5 @@ void DiffTest()
 	
 	result = d.DiffInt(c, e);
 
-	int asd=0;
+	#endif
 }
