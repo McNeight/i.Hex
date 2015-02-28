@@ -11,13 +11,13 @@
 		<Node Name="Scripting" Type="1" Platforms="15" Open="1">
 			<Node File="../../Lgi/trunk/src/common/Coding/GLexCpp.cpp" Type="2" Platforms="15" />
 			<Node File="../../Lgi/trunk/src/common/Coding/GScriptCompiler.cpp" Type="2" Platforms="15" />
-			<Node File="../../Lgi/trunk/src/common/Coding/GScripting.cpp" Type="2" Platforms="15" />
 			<Node File="../../Lgi/trunk/src/common/Coding/GScriptingPriv.h" Type="3" Platforms="15" />
 			<Node File="../../Lgi/trunk/src/common/Coding/GScriptLibrary.cpp" Type="2" Platforms="15" />
 			<Node File="../../Lgi/trunk/src/common/Coding/GScriptVM.cpp" Type="2" Platforms="15" />
 		</Node>
 		<Node File="./Code/Diff.cpp" Type="2" Platforms="15" />
 		<Node File="./Code/iHex.cpp" Type="2" Platforms="15" />
+		<Node File="./Code/MapLex.cpp" Type="2" Platforms="15" />
 		<Node File="./Code/SearchDlg.cpp" Type="2" Platforms="15" />
 		<Node File="./Code/Visualiser.cpp" Type="2" Platforms="15" />
 	</Node>
