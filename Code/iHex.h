@@ -74,7 +74,7 @@ enum Controls
 
 /////////////////////////////////////////////////////////////////////////////
 extern const char *AppName;
-extern char16 *LexCpp(char16 *&s, bool ReturnString = true);
+// extern char16 *LexCpp(char16 *&s, bool ReturnString = true);
 
 /////////////////////////////////////////////////////////////////////////////
 class AppWnd : public GDocApp<GOptionsFile>, public GScriptContext
