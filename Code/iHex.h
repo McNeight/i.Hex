@@ -161,7 +161,7 @@ class GVisualiseView : public GSplitter
 	char Base[300];
 
 public:
-	GVisualiseView(AppWnd *app);
+	GVisualiseView(AppWnd *app, char *DefVisual = NULL);
 	int OnNotify(GViewI *c, int f);
 	void Visualise(char *Data, int Len, bool Little);
 };

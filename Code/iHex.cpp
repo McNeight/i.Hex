@@ -2815,13 +2815,16 @@ void AppWnd::ToggleVisualise()
 
 		if (Split)
 		{
+			GAutoString DefVisual;
+			LgiApp->GetOption("visual", DefVisual);
+			
 			Doc->Detach();
 			Split->Value(SPLIT_X);
 			Split->Border(false);
 			Split->Raised(false);
 			Split->Attach(this);
 			Split->SetViewA(Doc, false);
-			Split->SetViewB(Visual = new GVisualiseView(this), false);
+			Split->SetViewB(Visual = new GVisualiseView(this, DefVisual), false);
 		}
 	}
 	else
