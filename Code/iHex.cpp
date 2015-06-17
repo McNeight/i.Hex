@@ -885,7 +885,7 @@ void GHexView::SetScroll()
 		int Lines = GetClient().Y() / CharSize.y;
 		int64 DocLines = (Size + 15) / 16;
 
-		VScroll->SetLimits(0, DocLines-1);
+		VScroll->SetLimits(0, DocLines > 0 ? DocLines - 1 : 0);
 		VScroll->SetPage(Lines);
 	}
 }
@@ -1939,7 +1939,7 @@ void GHexView::OnPaint(GSurface *pDC)
 	COLOUR Fore[256];
 	COLOUR Back[256];
 	CurrentY = r.y1;
-	uint64 YPos = VScroll ? VScroll->Value() : 0;
+	int64 YPos = VScroll ? VScroll->Value() : 0;
 	int64 Start = YPos * BytesPerLine;
 	int Lines = r.Y() / CharSize.y;
 	int64 End = min(Size-1, Start + (Lines * BytesPerLine));
