@@ -190,10 +190,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\Code\MapLex.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\Code\SearchDlg.cpp"
 				>
 			</File>
@@ -238,6 +234,10 @@
 				>
 				<File
 					RelativePath="..\..\Lgi\trunk\src\common\Coding\GLexCpp.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\Lgi\trunk\include\common\GLexCpp.h"
 					>
 				</File>
 				<File

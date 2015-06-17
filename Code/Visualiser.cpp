@@ -3,7 +3,21 @@
 #include "iHex.h"
 #include "GList.h"
 #include "GUtf8.h"
+#include "GLexCpp.h"
 #include "resdefs.h"
+
+struct ViewContext
+{
+	GStream &Out;
+	char *Base;
+	char *Data;
+	int Len;
+	int Bit;
+	
+	ViewContext(GStream &o) : Out(o)
+	{
+	}
+};
 
 int XCmp(char16 *w, const char *utf, int Len = -1)
 {
@@ -78,18 +92,7 @@ int64 IfSwap(int64 i, bool Little)
 				(((uint64)p[5]) << 40) |
 				(((uint64)p[6]) << 48) |
 				(((uint64)p[7]) << 56);
-				
 
-		/* Old
-		i = ((i & 0xff00000000000000L) >> 56) |
-			((i & 0xff000000000000L) >> 40) |
-			((i & 0xff0000000000L) >> 24) |
-			((i & 0xff00000000L) >> 8) |
-			((i & 0xff000000) << 8) |
-			((i & 0xff0000) << 24) |
-			((i & 0xff00) << 40) |
-			((i & 0xff) << 56);
-		*/
 	}
 	return i;
 }
@@ -107,17 +110,6 @@ uint64 IfSwap(uint64 i, bool Little)
 				(((uint64)p[5]) << 40) |
 				(((uint64)p[6]) << 48) |
 				(((uint64)p[7]) << 56);
-
-		/* Old
-		i = ((i & 0xff00000000000000) >> 56) |
-			((i & 0xff000000000000) >> 40) |
-			((i & 0xff0000000000) >> 24) |
-			((i & 0xff00000000) >> 8) |
-			((i & 0xff000000) << 8) |
-			((i & 0xff0000) << 24) |
-			((i & 0xff00) << 40) |
-			((i & 0xff) << 56);
-		*/
 	}
 	
 	return i;
@@ -125,6 +117,7 @@ uint64 IfSwap(uint64 i, bool Little)
 
 enum BaseType
 {
+	TypeNull,
 	TypeInt,
 	TypeFloat,
 	TypeChar,
@@ -136,8 +129,39 @@ struct Basic
 {
 	BaseType Type;
 	uint8 Bytes;
+	int Bits;
 	bool Signed;
 	bool Array;
+	
+	Basic()
+	{
+		Type = TypeNull;
+		Bytes = 0;
+		Bits = 0;
+		Signed = false;
+		Array = false;
+	}
+};
+
+struct ArrayDimension
+{
+	GArray<char16*> Expression;
+	
+	~ArrayDimension()
+	{
+		Expression.DeleteArrays();
+	}
+	
+	ArrayDimension &operator =(const ArrayDimension &a)
+	{
+		Expression.DeleteArrays();
+		for (unsigned i=0; i<Expression.Length(); i++)
+		{
+			char16 *s = a.Expression.ItemAt(i);
+			Expression.Add(NewStrW(s));
+		}
+		return *this;
+	}
 };
 
 class StructDef;
@@ -147,7 +171,7 @@ public:
 	Basic *Base;
 	StructDef *Cmplex;
 	char *Pad;
-	char *Length; // for arrays
+	GArray<ArrayDimension> Length; // for arrays
 
 	VarDefType()
 	{
@@ -161,7 +185,6 @@ public:
 	{
 		DeleteObj(Base);
 		DeleteArray(Pad);
-		DeleteArray(Length);
 	}
 
 	int Sizeof();
@@ -181,18 +204,81 @@ uint64 DeNibble(char *ptr, int size)
 	return n;
 }
 
-class VarDef
+struct ConditionDef;
+struct VarDef;
+struct Member
 {
-public:
+	enum MemberType
+	{
+		MemberNone,
+		MemberCondition,
+		MemberVar
+	}	Type;
+	
+	Member(MemberType t) : Type(t)
+	{
+	}
+	
+	virtual ~Member()
+	{
+	}
+	
+	virtual int64 Sizeof() = 0;
+	virtual VarDef *IsVar() = 0;
+	virtual ConditionDef *IsCondition() = 0;
+};
+
+struct ConditionDef : public Member
+{
+	bool Little;
+	int Eval;
+	GArray<char16*> Expression;
+	GArray<Member*> Members;
+	GArray<char*> Addr;
+	
+	ConditionDef() : Member(MemberCondition)
+	{
+		Little = true;
+		Eval = -1;
+	}
+	
+	~ConditionDef()
+	{
+		Expression.DeleteArrays();
+	}
+
+	VarDef *IsVar() { return NULL; }
+	ConditionDef *IsCondition() { return this; }
+
+	int64 Sizeof()
+	{
+		if (!Eval)
+			return 0;
+			
+		int64 Sz = 0;
+		for (unsigned i=0; i<Members.Length(); i++)
+		{
+			Sz += Members[i]->Sizeof();
+		}
+		return Sz;
+	}
+
+	bool GetVariant(const char *Name, GVariant &Value, char *Array = 0);
+};
+
+struct VarDef : public Member
+{
 	VarDefType *Type;
 	char *Name;
 	GVariant Value;
 	bool Hidden;
+	bool Debug;
 
-	VarDef()
+	VarDef() : Member(MemberVar)
 	{
 		Name = 0;
 		Hidden = false;
+		Debug = false;
 	}
 
 	~VarDef()
@@ -200,7 +286,9 @@ public:
 		DeleteArray(Name);
 	}
 
-	int Sizeof()
+	VarDef *IsVar() { return this; }
+	ConditionDef *IsCondition() { return NULL; }
+	int64 Sizeof()
 	{
 		return Type ? Type->Sizeof() : 0;
 	}
@@ -497,12 +585,44 @@ public:
 	}
 };
 
+bool ConditionDef::GetVariant(const char *Name, GVariant &Value, char *Array)
+{
+	if (Eval <= 0)
+	{
+		return false;
+	}
+	
+	int Len = min(Members.Length(), Addr.Length());
+	ConditionDef *c = NULL;
+	for (int i=0; i<Len; i++)
+	{
+		Member *m = Members[i];
+		VarDef *v = m->IsVar();
+		if (v)
+		{
+			if (v->Name && _stricmp(v->Name, Name) == 0)
+			{
+				Value = v->CastInt(Addr[i], Little);
+				return true;
+			}
+		}
+		else if (c = m->IsCondition())
+		{
+			if (c->GetVariant(Name, Value, Array))
+				return true;
+		}
+	}
+	
+	return false;
+}
+
+
 class StructDef
 {
 public:
 	char *Name;
 	char *Base;
-	GArray<VarDef*> Vars;
+	GArray<Member*> Members;
 	GArray<StructDef*> Children;
 
 	StructDef()
@@ -520,9 +640,9 @@ public:
 	int Sizeof()
 	{
 		int Size = 0;
-		for (int i=0; i<Vars.Length(); i++)
+		for (int i=0; i<Members.Length(); i++)
 		{
-			Size += Vars[i]->Sizeof();
+			Size += Members[i]->Sizeof();
 		}
 		return Size;
 	}
@@ -541,7 +661,7 @@ public:
 		return NULL;
 	}
 
-	StructDef *MatchChild(char *Data, int Len, bool Little)
+	StructDef *MatchChild(ViewContext &View, bool Little)
 	{
 		if (Children.Length() == 0)
 			return NULL;
@@ -549,8 +669,8 @@ public:
 		// Check to see if any child struct specializations match
 		for (int c=0; c<Children.Length(); c++)
 		{
-			char *d = Data;
-			int l = Len;
+			char *d = View.Data;
+			int l = View.Len;
 			if (Children[c]->Match(d, l, Little))
 			{
 				return Children[c];
@@ -566,70 +686,82 @@ public:
 
 		if (Data && Len > 0)
 		{
-			for (int i=0; i<Vars.Length(); i++)
+			for (int i=0; i<Members.Length(); i++)
 			{
-				VarDef *d = Vars[i];
-				if (d->Type->Base)
+				Member *Mem = Members[i];
+				VarDef *d = Mem->IsVar();
+				if (d)
 				{
-					if (d->Type &&
-						d->Type->Base)
+					if (d->Type->Base)
 					{
-						if ((d->Type->Base->Type == TypeChar) || (d->Type->Base->Type == TypeStrZ))
+						if (d->Type &&
+							d->Type->Base)
 						{
-							char *Str = 0;
-							if (d->HasValue(Str))
+							if ((d->Type->Base->Type == TypeChar) || (d->Type->Base->Type == TypeStrZ))
 							{
-								if (Str && strnicmp(Data, Str, strlen(Str)) != 0)
+								char *Str = 0;
+								if (d->HasValue(Str))
 								{
-									return false;
+									if (Str && strnicmp(Data, Str, strlen(Str)) != 0)
+									{
+										return false;
+									}
+									else Status = true;
 								}
-								else Status = true;
+							}
+							else if (d->Type->Base->Type == TypeInt)
+							{
+								int Val = 0;
+								if (d->HasValue(Val))
+								{
+									uint32 i = d->CastInt(Data, Little);
+									if (i != Val)
+									{
+										return false;
+									}
+									else Status = true;
+								}
+							}
+							else if (d->Type->Base->Type == TypeFloat)
+							{
+								float Val = 0;
+								if (d->HasValue(Val))
+								{
+									float f = d->CastFloat(Data, Little);
+									if (f != Val)
+									{
+										return false;
+									}
+									else Status = true;
+								}
 							}
 						}
-						else if (d->Type->Base->Type == TypeInt)
-						{
-							int Val = 0;
-							if (d->HasValue(Val))
-							{
-								uint32 i = d->CastInt(Data, Little);
-								if (i != Val)
-								{
-									return false;
-								}
-								else Status = true;
-							}
-						}
-						else if (d->Type->Base->Type == TypeFloat)
-						{
-							float Val = 0;
-							if (d->HasValue(Val))
-							{
-								float f = d->CastFloat(Data, Little);
-								if (f != Val)
-								{
-									return false;
-								}
-								else Status = true;
-							}
-						}
-					}
 
-					int Length = d->Type->Length ? atoi(d->Type->Length) : 1;
-					if (Length == 0)
+						int Length = 1;
+						if (d->Type->Length.Length() > 0)
+						{
+							ArrayDimension &ad = d->Type->Length.First();
+							if (ad.Expression.Length() == 1)
+								Length = AtoiW(ad.Expression[0]);
+							else
+								LgiAssert(!"Impl me.");
+						}						
+						if (Length == 0)
+						{
+							break;
+						}
+
+						Data += d->Type->Base->Bytes * Length;
+						Len -= d->Type->Base->Bytes * Length;
+					}
+					else if (d->Type->Cmplex)
 					{
-						break;
+						Status |= d->Type->Cmplex->Match(Data, Len, Little);
 					}
-
-					Data += d->Type->Base->Bytes * Length;
-					Len -= d->Type->Base->Bytes * Length;
-				}
-				else if (d->Type->Cmplex)
-				{
-					Status |= d->Type->Cmplex->Match(Data, Len, Little);
-				}
-				else
-				{
-					LgiAssert(0);
+					else
+					{
+						LgiAssert(0);
+					}
 				}
 			}
 		}
@@ -661,11 +793,18 @@ class StructureMap : public GListItem, public GDom
 	GStringPipe Errs;
 
 	bool Little;
-	GArray<char*> Addr;
-	StructDef *CurStructDef;
-	int ProcessedElements;
+	char Tabs[256];
+
+	struct ScopeType
+	{
+		int Pos;
+		GArray<Member*> *Members;
+		GArray<char*> Addr;
+	};	
+	GArray<ScopeType> Stack;
 
 public:
+	GHashTbl<const char*, char16*> Defines;
 	GArray<StructDef*> Compiled;
 
 	StructDef *GetStruct(const char *Name)
@@ -684,8 +823,6 @@ public:
 
 	StructureMap(AppWnd *app, char *file = 0)
 	{
-		CurStructDef = 0;
-		ProcessedElements = 0;
 		App = app;
 		File = 0;
 		Body = 0;
@@ -704,21 +841,40 @@ public:
 		if (!Name)
 			return false;
 
-		VarDef *Ref = 0;
-		int n = 0;
-		for (; n<ProcessedElements; n++)
+		// Walk up the stack of scopes looking for a variable matching 'Name'
+		for (int Scope = Stack.Length() - 1; Scope >= 0; Scope--)
 		{
-			if (CurStructDef->Vars[n]->Name &&
-				stricmp(CurStructDef->Vars[n]->Name, Name) == 0)
+			ScopeType &s = Stack[Scope];
+			int n = 0;
+			
+			VarDef *Var = NULL;
+			ConditionDef *Cond = NULL;
+			for (; n<s.Pos; n++)
 			{
-				Ref = CurStructDef->Vars[n];
-				break;
+				Member *Mem = (*s.Members)[n];
+				Var = Mem->IsVar();
+				if (Var)
+				{
+					if (Var->Name && stricmp(Var->Name, Name) == 0)
+					{
+						Value = Var->CastInt(s.Addr[n], Little);
+						return true;
+					}
+				}
+				else if (Cond = Mem->IsCondition())
+				{
+					Cond->Little = Little;
+					if (Cond->GetVariant(Name, Value, Array))
+						return true;
+				}
 			}
 		}
-		if (Ref)
+		
+		// If it's not in any scope, check the #defines as well
+		char16 *v = Defines.Find(Name);
+		if (v)
 		{
-			// Resolve to integer
-			Value = Ref->CastInt(Addr[n], Little);
+			Value = AtoiW(v);
 			return true;
 		}
 
@@ -758,126 +914,661 @@ public:
 		return out.Release();
 	}
 
-	bool DoStruct(StructDef *s, char *Base, char *&Data, int &Len, GStream &Out, bool little, int Depth = 0)
+	/// This function reads an arbitrary number of bits from 'View' to 'Out'	
+	template<typename T>
+	bool ReadBits
+	(
+		/// The output type (integer only)
+		T &Out,
+		/// The input stream of bytes. A copy is used to avoid
+		/// changing the contents of the source View. Updating
+		/// the position is separate to reading the data.
+		ViewContext View,
+		/// The number of bits to read
+		int Bits
+	)
 	{
-		char Tabs[256];
-
-		ZeroObj(Tabs);
-		memset(Tabs, ' ', Depth * 2);
-		CurStructDef = s;
-		Addr.Length(0);
-		Little = little;
-
-		for (int i=0; i<s->Vars.Length() && Len > 0; i++)
+		Out = 0;
+		
+		while (Bits > 0)
 		{
-			VarDef *d = s->Vars[i];
+			if (View.Len <= 0)
+				return false;
 
-			int Length = 1;
-			if (d->Type->Length)
+			// How many bits are available in the current byte;
+			int Avail = 8 - View.Bit;
+			int Rd = min(Bits, Avail);
+			int Mask = (1 << Rd) - 1;
+			int Shift = 8 - View.Bit - Rd;
+			Out <<= Rd;
+			Out |= (*View.Data >> Shift) & Mask;			
+			Bits -= Rd;
+			View.Bit += Rd;
+			if (View.Bit >= 8)
 			{
-				// Resolve the array length of this var
-				if (strlen(d->Type->Length) == 0)
+				// Move to next byte...
+				LgiAssert(View.Bit == 8);
+				View.Bit = 0;
+				View.Data++;
+				View.Len--;
+			}
+		}
+		
+		return true;
+	}
+	
+	bool SeekBits(ViewContext &v, int Bits)
+	{
+		while (Bits)
+		{
+			if (v.Len <= 0)
+				return false;
+			
+			int Avail = 8 - v.Bit;
+			int Sk = min(Bits, Avail);
+			Bits -= Sk;
+			v.Bit += Sk;
+			if (v.Bit >= 8)
+			{
+				LgiAssert(v.Bit == 8);
+				v.Bit = 0;
+				v.Data++;
+				v.Len--;
+			}
+		}
+		
+		return true;
+	}
+	
+	bool Seek(ViewContext &View, Basic *b)
+	{
+		if (b->Bits)
+		{
+			if (!SeekBits(View, b->Bits))
+				return false;
+		}
+		else
+		{
+			View.Data += b->Bytes;
+			View.Len -= b->Bytes;
+		}
+		
+		return true;
+	}
+	
+	bool ByteAlign(ViewContext &View, Basic *b)
+	{
+		if (b->Bits == 0 && View.Bit)
+		{
+			// Byte align..
+			if (View.Len > 0)
+			{
+				View.Bit = 0;
+				View.Data++;
+				View.Len--;
+			}
+			else
+			{
+				// No more data
+				return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	bool DoInt(VarDef *d, ViewContext &View, int &ArrayLength)
+	{
+		Basic *b = d->Type->Base;
+		if (!d->Hidden)
+		{
+			View.Out.Print("%s%s", Tabs, d->Name);
+			if (ArrayLength > 1)
+				View.Out.Print(":\n");
+			else
+				View.Out.Print(" = ");
+		}
+		
+		for (int n=0; n<ArrayLength && View.Len >= b->Bytes; n++)
+		{
+			ByteAlign(View, b);
+			
+			if (d->Type->Base->Bits == 0 && View.Bit)
+			{
+				// Byte align..
+				if (View.Len > 0)
 				{
-					Length = -1;
+					View.Bit = 0;
+					View.Data++;
+					View.Len--;
 				}
 				else
 				{
-					// Evaluate expression
-					GScriptEngine e(App, App, NULL);
-					GVariant v;
-					ProcessedElements = i;
-					if (e.EvaluateExpression(&v, this, d->Type->Length))
+					// No more data
+					return false;
+				}
+			}
+			
+			if (!d->Hidden)
+			{
+				if (ArrayLength > 1)
+					View.Out.Print("\t%s[%i] = ", Tabs, n);
+				char *LeadIn = ArrayLength > 1 ? Tabs : (char*)"";
+
+				switch (b->Bytes)
+				{
+					case 1:
 					{
-						Length = v.CastInt32();
-
-						if (Length < 0)
-							Length = 0;
-
-						int Sizeof = d->Sizeof();
-						if (Length * Sizeof > Len)
-							Length = Len / Sizeof;
+						uint8 Byte;
+						if (b->Bits)
+						{
+							// Bitfield
+							if (!ReadBits(Byte, View, b->Bits))
+								return false;
+						}
+						else
+						{
+							// Whole byte data
+							Byte = *View.Data;
+						}
+						
+						if (b->Signed)
+							View.Out.Print("%s%i (0x%02.2x)\n", LeadIn, (int8)Byte, (int8)Byte);
+						else
+							View.Out.Print("%s%u (0x%02.2x)\n", LeadIn, (uint8)Byte, (uint8)Byte);
+						break;
 					}
-					else
+					case 2:
 					{
-						#if 1
-						Out.Print("Error: evaluating the expression '%s'\n", d->Type->Length);
-						#else
-						// Fall back code: this should never run.... but it's useful to 
-						// have around as a reference.
-						if (strnicmp(d->Type->Length, "0x", 2) == 0)
+						uint16 Short;
+						if (b->Bits)
 						{
-							// Hex
-							Length = htoi(d->Type->Length + 2);
+							// Bitfield
+							if (!ReadBits(Short, View, b->Bits))
+								return false;
 						}
-						else if (isdigit(*d->Type->Length))
+						else
 						{
-							// Int
-							Length = atoi(d->Type->Length);
+							// Whole byte data
+							Short = *((uint16*)View.Data);
 						}
-						else if (isalpha(*d->Type->Length))
+						
+						if (b->Signed)
 						{
-							int Pad = 0;
-							if (strnicmp(d->Type->Length, "Pad", 3) == 0 &&
-								(Pad = atoi(d->Type->Length + 3)) > 0)
-							{
-								// Padding
-								if (Pad % 8 == 0)
-								{
-									int Bytes = Pad / 8;
-									int Off = Data - Base;
-									if (Off % Bytes)
-									{
-										int Inc = Bytes - (Off % Bytes);
-										if (Len >= Inc)
-										{
-											Out.Print("%sPadding: %i byte(s)\n", Tabs, Inc);
-											Data += Inc;
-											Len -= Inc;
-											return true;
-										}
-										else
-										{
-											return false;
-										}
-									}
-								}
-								else
-								{
-									Out.Print("%s Error: invalid pad value '%i'\n", Tabs, Pad);
-								}
-							}
-							else
-							{
-								// Variable
-								VarDef *Ref = 0;
-								int n=0;
-								for (; n<i; n++)
-								{
-									if (s->Vars[n]->Name &&
-										stricmp(s->Vars[n]->Name, d->Type->Length) == 0)
-									{
-										Ref = s->Vars[n];
-										break;
-									}
-								}
-								if (Ref)
-								{
-									// Resolve to integer
-									Length = Ref->CastInt(Addr[n], Little);
-								}
-							}
+							int16 n = IfSwap(((int16)Short), Little);
+							View.Out.Print("%s%i (0x%04.4x)\n", LeadIn, n, n);
 						}
-						#endif
+						else
+						{
+							uint16 n = IfSwap(Short, Little);
+							View.Out.Print("%s%u (0x%04.4x)\n", LeadIn, n, n);
+						}
+						break;
+					}
+					case 4:
+					{
+						uint32 Int;
+						if (b->Bits)
+						{
+							// Bitfield
+							if (!ReadBits(Int, View, b->Bits))
+								return false;
+						}
+						else
+						{
+							// Whole byte data
+							Int = *((uint32*)View.Data);
+						}
+						
+						if (b->Signed)
+						{
+							int32 n = IfSwap((int32)Int, Little);
+							View.Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
+						}
+						else
+						{
+							uint32 n = IfSwap(Int, Little);
+							View.Out.Print("%s%u (0x%08.8x)\n", LeadIn, n, n);
+						}
+						break;
+					}
+					case 8:
+					{
+						uint64 Long;
+						if (b->Bits)
+						{
+							// Bitfield
+							if (!ReadBits(Long, View, b->Bits))
+								return false;
+						}
+						else
+						{
+							// Whole byte data
+							Long = *((uint64*)View.Data);
+						}
+
+						if (b->Signed)
+						{
+							int64 n = IfSwap((int64)Long, Little);
+							#ifdef WIN32
+							View.Out.Print("%s%I64i (0x%16.16lI64x)\n", LeadIn, n, n);
+							#else
+							View.Out.Print("%s%li (0x%16.16lx)\n", LeadIn, n, n);
+							#endif
+						}
+						else
+						{
+							uint64 n = IfSwap(Long, Little);
+							#ifdef WIN32
+							View.Out.Print("%s%I64u (0x%16.16lI64x)\n", LeadIn, n, n);
+							#else
+							View.Out.Print("%s%lu (0x%16.16lx)\n", LeadIn, n, n);
+							#endif
+						}
+						break;
 					}
 				}
 			}
 
-			if (Length == 0)
-				continue;
+			int Val = 0;
+			if (d->HasValue(Val))
+			{
+				int i = d->CastInt(View.Data, Little);
+				if (i != Val)
+				{
+					View.Out.Print("%sValue Mismatch!\n", Tabs);
+					return false;
+				}
+			}
+
+			if (!Seek(View, b))
+				return false;
+		}
+		
+		return true;
+	}
+	
+	bool DoFloat(VarDef *d, ViewContext &View, int &ArrayLength)
+	{
+		Basic *b = d->Type->Base;
+		if (!d->Hidden)
+		{
+			View.Out.Print("%s%s", Tabs, d->Name);
+			if (ArrayLength > 1)
+				View.Out.Print(":\n");
+			else
+				View.Out.Print(" = ");
+		}
+		
+		for (int n=0; n<ArrayLength && View.Len >= b->Bytes; n++)
+		{
+			if (!d->Hidden)
+			{
+				if (ArrayLength > 1)
+					View.Out.Print("\t%s[%i] = ", Tabs, n);
+				char *LeadIn = ArrayLength > 1 ? Tabs : (char*)"";
+
+				switch (b->Bytes)
+				{
+					case 4:
+					{
+						LgiAssert(sizeof(float) == 4);
+						
+						float flt = *((float*)View.Data);
+						#define Swap(a, b) { uint8 t = a; a = b; b = t; }
+						
+						if (!Little)
+						{
+							uint8 *c = (uint8*)&flt;
+							Swap(c[0], c[3]);
+							Swap(c[1], c[2]);
+						}
+
+						double dbl = flt;
+
+						View.Out.Print("%s%g\n", LeadIn, dbl);
+
+						float Val = 0;
+						if (d->HasValue(Val))
+						{
+							if (d->CastFloat(View.Data, Little) != Val)
+							{
+								View.Out.Print("%sValue Mismatch!\n", Tabs);
+								return false;
+							}
+						}
+						break;
+					}
+					case 8:
+					{
+						LgiAssert(sizeof(double) == 8);
+
+						double dbl = *((double*)View.Data);
+
+						if (!Little)
+						{
+							uint8 *c = (uint8*)&dbl;
+							Swap(c[0], c[7]);
+							Swap(c[1], c[6]);
+							Swap(c[2], c[5]);
+							Swap(c[3], c[4]);
+						}
+
+						View.Out.Print("%s%g\n", LeadIn, dbl);
+
+						double Val = 0;
+						if (d->HasValue(Val))
+						{
+							if (d->CastDouble(View.Data, Little) != Val)
+							{
+								View.Out.Print("%sValue Mismatch!\n", Tabs);
+								return false;
+							}
+						}
+						break;
+					}
+					default:
+					{
+						View.Out.Print("#error (%s:%i)\n", LeadIn, __FILE__, __LINE__);
+						break;										
+					}
+				}
+			}
+
+			View.Data += b->Bytes;
+			View.Len -= b->Bytes;
+		}
+		
+		return true;
+	}
+
+	bool DoNibble(VarDef *d, ViewContext &View, int &ArrayLength)
+	{
+		Basic *b = d->Type->Base;
+		if (!d->Hidden)
+		{
+			View.Out.Print("%s%s", Tabs, d->Name);
+			if (ArrayLength > 1)
+				View.Out.Print(":\n");
+			else
+				View.Out.Print(" = ");
+		}
+		
+		for (int n=0; n<ArrayLength && View.Len >= b->Bytes; n++)
+		{
+			if (!d->Hidden)
+			{
+				if (ArrayLength > 1)
+					View.Out.Print("\t%s[%i] = ", Tabs, n);
+				char *LeadIn = ArrayLength > 1 ? Tabs : (char*)"";
+
+				switch (b->Bytes)
+				{
+					case 2:
+					{
+						uint8 n = DeNibble(View.Data, b->Bytes);
+						View.Out.Print("%s%u (0x%02.2x)\n", LeadIn, n, n);
+						break;
+					}
+					case 4:
+					{
+						uint16 v = DeNibble(View.Data, b->Bytes);
+						uint16 n = IfSwap(v, Little);
+						View.Out.Print("%s%u (0x%04.4x)\n", LeadIn, n, n);
+						break;
+					}
+					case 8:
+					{
+						uint32 v = DeNibble(View.Data, b->Bytes);
+						uint32 n = IfSwap(v, Little);
+						View.Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
+						break;
+					}
+					case 16:
+					{
+						uint64 v = DeNibble(View.Data, b->Bytes);
+						uint64 n = IfSwap(v, Little);
+						View.Out.Print("%s%I64u (0x%016.16I64x)\n", LeadIn, n, n);
+						break;
+					}
+					default:
+						LgiAssert(!"Not impl.");
+						break;
+				}
+			}
+
+			int Val = 0;
+			if (d->HasValue(Val))
+			{
+				if (d->CastInt(View.Data, Little) != Val)
+				{
+					View.Out.Print("%sValue Mismatch!\n", Tabs);
+					return false;
+				}
+			}
+
+			View.Data += b->Bytes;
+			View.Len -= b->Bytes;
+		}
+		
+		return true;
+	}
+	
+	bool DoString(VarDef *d, ViewContext &View, int &ArrayLength)
+	{
+		if (!d->Hidden)
+		{
+			bool Long =  ArrayLength >= 256;
+			if (Long)
+			{
+				View.Out.Print("%s%s[%i]\n", Tabs, d->Name, ArrayLength);
+			}
+			else if (d->Type->Base->Bytes == 1)
+			{
+				// char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
+				char *u = DisplayString(View.Data, ArrayLength);
+
+				View.Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
+				if (u && d->Value.Str())
+				{
+					if (strnicmp(u, d->Value.Str(), ArrayLength) != 0)
+					{
+						View.Out.Print("%sValue Mismatch!\n", Tabs);
+						DeleteArray(u);
+						return false;
+					}
+				}
+				DeleteArray(u);
+			}
+			else if (d->Type->Base->Bytes == 2)
+			{
+				char16 *w = new char16[ArrayLength+1];
+				char16 *u = 0;
+				if (w)
+				{
+					char16 *Src = (char16*)View.Data;
+					for (int i=0; i<ArrayLength; i++)
+					{
+						w[i] = IfSwap(Src[i], Little);
+					}
+					w[ArrayLength] = 0;
+
+					// u = LgiNewUtf16To8(w);
+					u = DisplayString(w, ArrayLength);
+				}
+				DeleteArray(w);
+
+				View.Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
+				if (d->Value.WStr())
+				{
+					if (StrnicmpW(u, d->Value.WStr(), ArrayLength) != 0)
+					{
+						View.Out.Print("%sValue Mismatch!\n", Tabs);
+						DeleteArray(u);
+						return false;
+					}
+				}
+				DeleteArray(u);
+			}
+		}
+
+		View.Data += ArrayLength * d->Type->Base->Bytes;
+		View.Len -= ArrayLength * d->Type->Base->Bytes;
+		
+		return true;
+	}
+	
+	bool DoStrZ(VarDef *d, ViewContext &View, int &ArrayLength)
+	{
+		if (!d->Hidden && (d->Type->Base->Bytes < 8))
+		{
+			View.Out.Print("%s%s", Tabs, d->Name);
+			if (ArrayLength > 1)
+				View.Out.Print(":\n");
+			else
+				View.Out.Print(" = ");
+		}
+		for (int n=0; n<ArrayLength && View.Len >= d->Type->Base->Bytes; n++)
+		{
+			if (!d->Hidden && (d->Type->Base->Bytes < 8))
+			{
+				if (ArrayLength > 1)
+					View.Out.Print("\t%s[%i] = ", Tabs, n);
+			}
+			int zstringLen = 0;
+			if (d->Type->Base->Bytes == 1)
+			{
+				while (*(View.Data + zstringLen))
+				{
+					zstringLen++;
+				}
+				char *u = (char*) LgiNewConvertCp("utf-8", View.Data, "iso-8859-1", zstringLen);
+				if (!d->Hidden)
+				{
+					View.Out.Print("'%s'\n", u);
+					if (u && d->Value.Str())
+					{
+						if (strnicmp(u, d->Value.Str(), zstringLen) != 0)
+						{
+							View.Out.Print("%sValue Mismatch!\n", Tabs);
+							DeleteArray(u);
+							return false;
+						}
+					}
+				}
+				DeleteArray(u);
+			}
+			else if (d->Type->Base->Bytes == 2)
+			{
+				while ((char16)*(View.Data + zstringLen * d->Type->Base->Bytes))
+				{
+					zstringLen++;
+				}
+				char16 *w = new char16[zstringLen+1];
+				char *u = 0;
+				if (w)
+				{
+					char16 *Src = (char16*)View.Data;
+					for (int i=0; i<zstringLen; i++)
+					{
+						w[i] = IfSwap(Src[i], Little);
+					}
+					w[zstringLen] = 0;
+
+					u = LgiNewUtf16To8(w);
+				}
+				DeleteArray(w);
+
+				if (!d->Hidden)
+				{
+					View.Out.Print("'%s'\n", u);
+					if (d->Value.Str())
+					{
+						if (strnicmp(u, d->Value.Str(), zstringLen) != 0)
+						{
+							View.Out.Print("%sValue Mismatch!\n", Tabs);
+							DeleteArray(u);
+							return false;
+						}
+					}
+				}
+				DeleteArray(u);
+			}
+			else if (d->Type->Base->Bytes == 8)
+			{
+				// Just skip passed the string
+				while ((uint64)*(View.Data + zstringLen * d->Type->Base->Bytes))
+				{
+					zstringLen++;
+				}
+			}
+			
+			zstringLen += 1; // Take null terminator into account
+			View.Data += zstringLen * d->Type->Base->Bytes;
+			View.Len -= zstringLen * d->Type->Base->Bytes;
+		}
+		
+		return true;
+	}
+
+	bool DoMember(Member *Mem, ViewContext &View, ScopeType &Scope, int Depth)
+	{
+		if (!Mem)
+			return false;
+
+		ConditionDef *c;
+		VarDef *d = Mem->IsVar();
+		if (d)
+		{
+			if (d->Debug)
+			{
+				int asd=0;
+			}
+			
+			int ArrayLength = 1;
+			if (d->Type->Length.Length())
+			{
+				GArray<char*> DimStr;
+				for (unsigned dim = 0; dim < d->Type->Length.Length(); dim++)
+				{
+					GStringPipe p;
+					ArrayDimension &ad = d->Type->Length[dim];
+					for (unsigned n=0; n<ad.Expression.Length(); n++)
+					{
+						p.Print(" %S", ad.Expression[n]);
+					}
+					DimStr.Add(p.NewStr());
+				}
+				
+				LgiAssert(DimStr.Length() == 1);
+				
+				// Resolve the array length of this var
+				// Evaluate expression
+				GScriptEngine e(App, App, NULL);
+				GVariant v;
+				if (e.EvaluateExpression(&v, this, DimStr[0]))
+				{
+					ArrayLength = v.CastInt32();
+
+					if (ArrayLength < 0)
+						ArrayLength = 0;
+
+					int Sizeof = d->Sizeof();
+					if (ArrayLength * Sizeof > View.Len)
+						ArrayLength = View.Len / Sizeof;
+				}
+				else
+				{
+					View.Out.Print("Error: evaluating the expression '%s'\n", d->Type->Length);
+				}
+			}
+
+			if (ArrayLength == 0)
+				return true;
 
 			if (d->Type->Base)
 			{
-				Addr[i] = Data;
+				Scope.Addr[Scope.Pos] = View.Data;
 
 				Basic *b = d->Type->Base;
 				switch (b->Type)
@@ -887,413 +1578,32 @@ public:
 						break;
 					case TypeInt:
 					{
-						if (!d->Hidden)
-						{
-							Out.Print("%s%s", Tabs, d->Name);
-							if (Length > 1)
-								Out.Print(":\n");
-							else
-								Out.Print(" = ");
-						}
-						
-						for (int n=0; n<Length && Len >= b->Bytes; n++)
-						{
-							if (!d->Hidden)
-							{
-								if (Length > 1)
-									Out.Print("\t%s[%i] = ", Tabs, n);
-								char *LeadIn = Length > 1 ? Tabs : (char*)"";
-
-								switch (b->Bytes)
-								{
-									case 1:
-									{
-										if (b->Signed)
-											Out.Print("%s%i (0x%02.2x)\n", LeadIn, *Data, *Data);
-										else
-											Out.Print("%s%u (0x%02.2x)\n", LeadIn, (uint8)*Data, (uint8)*Data);
-										break;
-									}
-									case 2:
-									{
-										if (b->Signed)
-										{
-											int16 n = IfSwap(*((int16*)Data), Little);
-											Out.Print("%s%i (0x%04.4x)\n", LeadIn, n, n);
-										}
-										else
-										{
-											uint16 n = IfSwap(*((uint16*)Data), Little);
-											Out.Print("%s%u (0x%04.4x)\n", LeadIn, n, n);
-										}
-										break;
-									}
-									case 4:
-									{
-										if (b->Signed)
-										{
-											int32 n = IfSwap(*((int32*)Data), Little);
-											Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
-										}
-										else
-										{
-											uint32 n = IfSwap(*((uint32*)Data), Little);
-											Out.Print("%s%u (0x%08.8x)\n", LeadIn, n, n);
-										}
-										break;
-									}
-									case 8:
-									{
-										if (b->Signed)
-										{
-											int64 n = IfSwap(*((int64*)Data), Little);
-											#ifdef WIN32
-											Out.Print("%s%I64i (0x%16.16lI64x)\n", LeadIn, n, n);
-											#else
-											Out.Print("%s%li (0x%16.16lx)\n", LeadIn, n, n);
-											#endif
-										}
-										else
-										{
-											uint64 n = IfSwap(*((uint64*)Data), Little);
-											#ifdef WIN32
-											Out.Print("%s%I64u (0x%16.16lI64x)\n", LeadIn, n, n);
-											#else
-											Out.Print("%s%lu (0x%16.16lx)\n", LeadIn, n, n);
-											#endif
-										}
-										break;
-									}
-								}
-							}
-
-							int Val = 0;
-							if (d->HasValue(Val))
-							{
-								int i = d->CastInt(Data, Little);
-								if (i != Val)
-								{
-									Out.Print("%sValue Mismatch!\n", Tabs);
-									return false;
-								}
-							}
-
-							Data += b->Bytes;
-							Len -= b->Bytes;
-						}
+						if (!DoInt(d, View, ArrayLength))
+							return false;
 						break;
 					}
 					case TypeFloat:
 					{
-						if (!d->Hidden)
-						{
-							Out.Print("%s%s", Tabs, d->Name);
-							if (Length > 1)
-								Out.Print(":\n");
-							else
-								Out.Print(" = ");
-						}
-						
-						for (int n=0; n<Length && Len >= b->Bytes; n++)
-						{
-							if (!d->Hidden)
-							{
-								if (Length > 1)
-									Out.Print("\t%s[%i] = ", Tabs, n);
-								char *LeadIn = Length > 1 ? Tabs : (char*)"";
-
-								switch (b->Bytes)
-								{
-									case 4:
-									{
-										LgiAssert(sizeof(float) == 4);
-										
-										float flt = *((float*)Data);
-										#define Swap(a, b) { uint8 t = a; a = b; b = t; }
-										
-										if (!little)
-										{
-											uint8 *c = (uint8*)&flt;
-											Swap(c[0], c[3]);
-											Swap(c[1], c[2]);
-										}
-
-										double dbl = flt;
-
-										Out.Print("%s%g\n", LeadIn, dbl);
-
-										float Val = 0;
-										if (d->HasValue(Val))
-										{
-											if (d->CastFloat(Data, Little) != Val)
-											{
-												Out.Print("%sValue Mismatch!\n", Tabs);
-												return false;
-											}
-										}
-										break;
-									}
-									case 8:
-									{
-										LgiAssert(sizeof(double) == 8);
-
-										double dbl = *((double*)Data);
-	
-										if (!little)
-										{
-											uint8 *c = (uint8*)&dbl;
-											Swap(c[0], c[7]);
-											Swap(c[1], c[6]);
-											Swap(c[2], c[5]);
-											Swap(c[3], c[4]);
-										}
-
-										Out.Print("%s%g\n", LeadIn, dbl);
-
-										double Val = 0;
-										if (d->HasValue(Val))
-										{
-											if (d->CastDouble(Data, Little) != Val)
-											{
-												Out.Print("%sValue Mismatch!\n", Tabs);
-												return false;
-											}
-										}
-										break;
-									}
-									default:
-									{
-										Out.Print("#error (%s:%i)\n", LeadIn, __FILE__, __LINE__);
-										break;										
-									}
-								}
-							}
-
-							Data += b->Bytes;
-							Len -= b->Bytes;
-						}
+						if (!DoFloat(d, View, ArrayLength))
+							return false;
 						break;
 					}
 					case TypeNibble:
 					{
-						if (!d->Hidden)
-						{
-							Out.Print("%s%s", Tabs, d->Name);
-							if (Length > 1)
-								Out.Print(":\n");
-							else
-								Out.Print(" = ");
-						}
-						
-						for (int n=0; n<Length && Len >= b->Bytes; n++)
-						{
-							if (!d->Hidden)
-							{
-								if (Length > 1)
-									Out.Print("\t%s[%i] = ", Tabs, n);
-								char *LeadIn = Length > 1 ? Tabs : (char*)"";
-
-								switch (b->Bytes)
-								{
-									case 2:
-									{
-										uint8 n = DeNibble(Data, b->Bytes);
-										Out.Print("%s%u (0x%02.2x)\n", LeadIn, n, n);
-										break;
-									}
-									case 4:
-									{
-										uint16 v = DeNibble(Data, b->Bytes);
-										uint16 n = IfSwap(v, Little);
-										Out.Print("%s%u (0x%04.4x)\n", LeadIn, n, n);
-										break;
-									}
-									case 8:
-									{
-										uint32 v = DeNibble(Data, b->Bytes);
-										uint32 n = IfSwap(v, Little);
-										Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
-										break;
-									}
-									case 16:
-									{
-										uint64 v = DeNibble(Data, b->Bytes);
-										uint64 n = IfSwap(v, Little);
-										Out.Print("%s%I64u (0x%016.16I64x)\n", LeadIn, n, n);
-										break;
-									}
-									default:
-										LgiAssert(!"Not impl.");
-										break;
-								}
-							}
-
-							int Val = 0;
-							if (d->HasValue(Val))
-							{
-								if (d->CastInt(Data, Little) != Val)
-								{
-									Out.Print("%sValue Mismatch!\n", Tabs);
-									return false;
-								}
-							}
-
-							Data += b->Bytes;
-							Len -= b->Bytes;
-						}
+						if (!DoNibble(d, View, ArrayLength))
+							return false;
 						break;
 					}
 					case TypeChar:
 					{
-						if (!d->Hidden)
-						{
-							bool Long =  Length >= 256;
-							if (Long)
-							{
-								Out.Print("%s%s[%i]\n", Tabs, d->Name, Length);
-							}
-							else if (d->Type->Base->Bytes == 1)
-							{
-								// char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
-								char *u = DisplayString(Data, Length);
-
-								Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
-								if (u && d->Value.Str())
-								{
-									if (strnicmp(u, d->Value.Str(), Length) != 0)
-									{
-										Out.Print("%sValue Mismatch!\n", Tabs);
-										DeleteArray(u);
-										return false;
-									}
-								}
-								DeleteArray(u);
-							}
-							else if (d->Type->Base->Bytes == 2)
-							{
-								char16 *w = new char16[Length+1];
-								char16 *u = 0;
-								if (w)
-								{
-									char16 *Src = (char16*)Data;
-									for (int i=0; i<Length; i++)
-									{
-										w[i] = IfSwap(Src[i], Little);
-									}
-									w[Length] = 0;
-
-									// u = LgiNewUtf16To8(w);
-									u = DisplayString(w, Length);
-								}
-								DeleteArray(w);
-
-								Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
-								if (d->Value.WStr())
-								{
-									if (StrnicmpW(u, d->Value.WStr(), Length) != 0)
-									{
-										Out.Print("%sValue Mismatch!\n", Tabs);
-										DeleteArray(u);
-										return false;
-									}
-								}
-								DeleteArray(u);
-							}
-						}
-
-						Data += Length * d->Type->Base->Bytes;
-						Len -= Length * d->Type->Base->Bytes;
+						if (!DoString(d, View, ArrayLength))
+							return false;
 						break;
 					}
 					case TypeStrZ:
 					{
-						if (!d->Hidden && (d->Type->Base->Bytes < 8))
-						{
-							Out.Print("%s%s", Tabs, d->Name);
-							if (Length > 1)
-								Out.Print(":\n");
-							else
-								Out.Print(" = ");
-						}
-						for (int n=0; n<Length && Len >= d->Type->Base->Bytes; n++)
-						{
-							if (!d->Hidden && (d->Type->Base->Bytes < 8))
-							{
-								if (Length > 1)
-									Out.Print("\t%s[%i] = ", Tabs, n);
-							}
-							int zstringLen = 0;
-							if (d->Type->Base->Bytes == 1)
-							{
-								while (*(Data + zstringLen))
-								{
-									zstringLen++;
-								}
-								char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", zstringLen);
-								if (!d->Hidden)
-								{
-									Out.Print("'%s'\n", u);
-									if (u && d->Value.Str())
-									{
-										if (strnicmp(u, d->Value.Str(), zstringLen) != 0)
-										{
-											Out.Print("%sValue Mismatch!\n", Tabs);
-											DeleteArray(u);
-											return false;
-										}
-									}
-								}
-								DeleteArray(u);
-							}
-							else if (d->Type->Base->Bytes == 2)
-							{
-								while ((char16)*(Data + zstringLen * d->Type->Base->Bytes))
-								{
-									zstringLen++;
-								}
-								char16 *w = new char16[zstringLen+1];
-								char *u = 0;
-								if (w)
-								{
-									char16 *Src = (char16*)Data;
-									for (int i=0; i<zstringLen; i++)
-									{
-										w[i] = IfSwap(Src[i], Little);
-									}
-									w[zstringLen] = 0;
-
-									u = LgiNewUtf16To8(w);
-								}
-								DeleteArray(w);
-
-								if (!d->Hidden)
-								{
-									Out.Print("'%s'\n", u);
-									if (d->Value.Str())
-									{
-										if (strnicmp(u, d->Value.Str(), zstringLen) != 0)
-										{
-											Out.Print("%sValue Mismatch!\n", Tabs);
-											DeleteArray(u);
-											return false;
-										}
-									}
-								}
-								DeleteArray(u);
-							}
-							else if (d->Type->Base->Bytes == 8)
-							{
-								// Just skip passed the string
-								while ((uint64)*(Data + zstringLen * d->Type->Base->Bytes))
-								{
-									zstringLen++;
-								}
-							}
-							
-							zstringLen += 1; // Take null terminator into account
-							Data += zstringLen * d->Type->Base->Bytes;
-							Len -= zstringLen * d->Type->Base->Bytes;
-						}
+						if (!DoStrZ(d, View, ArrayLength))
+							return false;
 						break;
 					}
 				}
@@ -1301,39 +1611,110 @@ public:
 			else if (d->Type->Cmplex)
 			{
 				StructDef *s = d->Type->Cmplex;
-				StructDef *sub = s->MatchChild(Data, Len, Little);
+				StructDef *sub = s->MatchChild(View, Little);
 
+				int Offset = View.Data - View.Base;
 				if (sub)
-					Out.Print("%s%s.%s (@ %i/0x%x) =\n", Tabs, sub->Name, d->Name, Data-Base, Data-Base);
+					View.Out.Print("%s%s.%s (@ %i/0x%x) =\n", Tabs, sub->Name, d->Name, Offset, Offset);
 				else
-					Out.Print("%s%s (@ %i/0x%x) =\n", Tabs, d->Name, Data-Base, Data-Base);
+					View.Out.Print("%s%s (@ %i/0x%x) =\n", Tabs, d->Name, Offset, Offset);
 				
-				if (Length == 1)
-					Out.Print("%s{\n", Tabs);
+				if (ArrayLength == 1)
+					View.Out.Print("%s{\n", Tabs);
 				
-				for (int i=0; (Length < 0 || i < Length) && Len > 0; i++)
+				for (int i=0; (ArrayLength < 0 || i < ArrayLength) && View.Len > 0; i++)
 				{
 					s = d->Type->Cmplex;
 					if (i)
-						sub = s->MatchChild(Data, Len, Little);
+						sub = s->MatchChild(View, Little);
 					if (sub)
 						s = sub;
 
-					if (Length != 1)
-						Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name, Data-Base, Data-Base);
+					if (ArrayLength != 1)
+					{
+						Offset = View.Data - View.Base;
+						View.Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name, Offset, Offset);
+					}
 
-					if (!DoStruct(s, Base, Data, Len, Out, Little, Depth + 1 + (Length != 1 ? 1 : 0)))
+					if (!DoStruct(s, View, Little, Depth + 1 + (ArrayLength != 1 ? 1 : 0)))
 					{
 						return false;
 					}
+					
+					SetTabs(Depth);
 				}
 				
-				if (Length == 1)
-					Out.Print("%s}\n", Tabs);
+				if (ArrayLength == 1)
+					View.Out.Print("%s}\n", Tabs);
 			}
 		}
+		else if (c = Mem->IsCondition())
+		{
+			GStringPipe p;
+			for (unsigned n=0; n<c->Expression.Length(); n++)
+			{
+				p.Print(" %S", c->Expression[n]);
+			}
+			GAutoString Exp(p.NewStr());
+			GScriptEngine e(App, App, NULL);
+			GVariant v;
+			if (!e.EvaluateExpression(&v, this, Exp))
+			{
+				View.Out.Print("Error: Couldn't evaluate '%s'\n", Exp.Get());
+				return false;
+			}
 
+			c->Eval = v.CastInt32() != 0;
+			View.Out.Print("%s// Expression:%s = %i\n", Tabs, Exp.Get(), c->Eval);
+			if (c->Eval)
+			{
+				int InitLen = Stack.Length();
+				ScopeType &Sub = Stack.New();
+				Sub.Members = &c->Members;
+				for (Sub.Pos=0; Sub.Pos<c->Members.Length(); Sub.Pos++)
+				{
+					Member *Mem = c->Members[Sub.Pos];
+					if (!DoMember(Mem, View, Sub, Depth))
+						return false;
+					
+					// This saves the member address in case we need to resolve
+					// one of the members to an array index.
+					c->Addr[Sub.Pos] = Scope.Addr[Sub.Pos];
+				}
+				Stack.Length(InitLen);
+			}						
+		}
+		
 		return true;
+	}
+
+	void SetTabs(int Depth)
+	{
+		ZeroObj(Tabs);
+		memset(Tabs, ' ', Depth * 2);
+	}
+
+	bool DoStruct(StructDef *s, ViewContext &View, bool little, int Depth = 0)
+	{
+		SetTabs(Depth);
+		
+		uint32 InitLen = Stack.Length();
+		ScopeType &Scope = Stack.New();
+		Scope.Members = &s->Members;
+		Little = little;
+
+		bool Error = false;
+		for (Scope.Pos=0; Scope.Pos<s->Members.Length() && View.Len > 0; Scope.Pos++)
+		{
+			if (!DoMember(s->Members[Scope.Pos], View, Scope, Depth))
+			{
+				Error = true;
+				break;
+			}			
+		}
+
+		Stack.Length(InitLen);
+		return !Error;
 	}
 
 	void Visualise(char *Data, int Len, GStream &Out, bool Little)
@@ -1341,9 +1722,12 @@ public:
 		StructDef *Main = GetStruct("Main");
 		if (Main)
 		{
-			char *d = Data;
-			int l = Len;
-			DoStruct(Main, d, d, l, Out, Little);
+			ViewContext Ctx(Out);
+			Ctx.Base = Data;
+			Ctx.Data = Data;
+			Ctx.Len = Len;
+			Ctx.Bit = 0;
+			DoStruct(Main, Ctx, Little);
 		}
 		else
 		{
@@ -1406,10 +1790,66 @@ public:
 		}
 	}
 
-	void Err(char16 *Cur, char16 *Start, const char *Msg)
+	class CompileState
+	{
+		GArray<char*> MemA;
+		GArray<char16*> MemW;
+
+	public:
+		bool Error;
+		GAutoWString Base;
+		char16 *s;
+		
+		CompileState(char *Init)
+		{
+			Error = false;
+			s = NULL;
+			if (Init)
+			{
+				Base.Reset(LgiNewUtf8To16(Init));
+				s = Base;
+			}
+		}
+		
+		~CompileState()
+		{
+			MemA.DeleteArrays();
+			MemW.DeleteArrays();
+		}
+		
+		char *NextA(bool AutoFree = true)
+		{
+			char16 *t = LexCpp(s, LexStrdup);
+			if (!t)
+				return NULL;
+			
+			char *u = LgiNewUtf16To8(t);
+			DeleteArray(t);
+			if (!u)
+				return NULL;
+			
+			if (AutoFree)
+				MemA.Add(u);
+			return u;
+		}
+
+		char16 *NextW(bool AutoFree = true)
+		{
+			char16 *t = LexCpp(s, LexStrdup);
+			if (!t)
+				return NULL;
+			
+			if (AutoFree)
+				MemW.Add(t);
+			return t;
+		}
+	};
+
+	void Err(CompileState &State, const char *Msg)
 	{
 		int Line = 1;
-		while (Cur > Start)
+		char16 *Cur = State.s;
+		while (Cur > State.Base)
 		{
 			if (*Cur == '\n')
 				Line++;
@@ -1431,8 +1871,8 @@ public:
 	{
 		return Errs.NewStr();
 	}
-
-	VarDefType *ParseType(char16 *t)
+	
+	VarDefType *ParseDefType(char16 *t)
 	{
 		VarDefType *v = 0;
 
@@ -1542,226 +1982,282 @@ public:
 		return v;
 	}
 
+	VarDef *ParseVar(CompileState &State, char16 *t)
+	{
+		bool IsHidden = false;
+		bool IsDebug = false;
+
+		if (!XCmp(t, "hidden"))
+		{
+			IsHidden = true;
+			t = State.NextW();
+		}
+
+		if (!XCmp(t, "debug"))
+		{
+			IsDebug = true;
+			t = State.NextW();
+		}
+
+		VarDefType *Type = ParseDefType(t);
+		if (!Type)
+		{
+			char m[256], *u = LgiNewUtf16To8(t);
+			sprintf(m, "expected type, got '%s' instead", u);
+			Err(State, m);
+			DeleteArray(u);
+			return NULL;
+		}		
+
+		GAutoPtr<VarDef> Var(new VarDef);
+		if (!Var)
+		{
+			Err(State, "allocation error");
+			return NULL;
+		}
+		
+		Var->Type = Type;
+		Var->Hidden = IsHidden;
+		Var->Debug = IsDebug;
+		Var->Name = State.NextA(false);
+		if (!Var->Name)
+		{
+			Err(State, "no name for vardef");
+			return NULL;
+		}
+
+		t = State.NextW();
+		if (!t)
+		{
+			Err(State, "expecting end of var def ';' or '[' for array");
+			return NULL;
+		}
+		
+		while (!XCmp(t, "["))
+		{
+			// Array
+			ArrayDimension &ad = Var->Type->Length.New();
+			int Depth = 0;
+			while (t = State.NextW(false))
+			{
+				if (!XCmp(t, "["))
+				{
+					Depth++;
+					ad.Expression.Add(t);
+				}
+				else if (!XCmp(t, "]"))
+				{
+					if (Depth)
+					{
+						Depth--;
+						ad.Expression.Add(t);
+					}
+					else
+					{
+						// Finished expression
+						break;
+					}
+				}
+				else
+				{
+					ad.Expression.Add(t);
+				}
+			}
+			
+			t = State.NextW();
+		}
+		
+		if (t && !XCmp(t, ":"))
+		{
+			// Bitfield
+			t = State.NextW();
+			Var->Type->Base->Bits = AtoiW(t);
+			LgiAssert(Var->Type->Base->Bits != 0);
+			
+			t = State.NextW();
+		}
+
+		if (t && !XCmp(t, "="))
+		{
+			// Constraint
+			Var->Value.OwnStr(TrimStr(State.NextA(false), "\"\'"));
+			t = State.NextW();
+		}
+		
+		if (t && XCmp(t, ";") == 0)
+		{
+		}
+		else
+		{
+			Err(State, "expected ';'");
+			return false;
+		}
+		
+		return Var.Release();
+	}
+
 	bool Compile()
 	{
-		bool Error = false;
-
+		CompileState State(GetBody());
 		Compiled.DeleteObjects();
-		GArray<char16*> Mem;
-
-		char16 *b = LgiNewUtf8To16(GetBody());
-		if (b)
+		if (State.Base)
 		{
-			#define NextTok() \
-				Mem.Add(t = LexCpp(s))
-			
 			#ifndef __GNUC__
+			#define IsTok(lit) \
+				(t != NULL && StricmpW(t, lit) == 0)
 			#define CheckTok(lit) \
 				if (!(t && StricmpW(t, L##lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '" ##lit "', got '%s'", u); \
-					Err(s, b, m); \
+					Err(State, m); \
 					DeleteArray(u) \
-					Error = true; \
+					State.Error = true; \
 					break; \
 				}
 			#else
+			#define IsTok(lit) \
+				(t != NULL && XCmp(t, lit) == 0)
 			#define CheckTok(lit) \
 				if (!(t && XCmp(t, lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '%s', got '%s'", lit, u); \
-					Err(s, b, m); \
+					Err(State, m); \
 					DeleteArray(u) \
-					Error = true; \
+					State.Error = true; \
 					break; \
 				}
 			#endif
 			#define Literal(lit) \
-				NextTok(); \
+				t = State.NextW(); \
 				CheckTok(lit);
 
-			char16 *t = 0, *s = b;
-			while (!Error)
+			char16 *t = 0;
+			while (!State.Error)
 			{
-				Mem.DeleteArrays();
-				NextTok();
-				if (t)
+				t = State.NextW();
+				if (!t)
+					break;
+
+				if (!XCmp(t, "#define"))
 				{
-					CheckTok("struct");
+					char *Name = State.NextA();
+					while (*State.s && strchr(WhiteSpace, *State.s))
+						State.s++;
+					char16 *Eol = StrchrW(State.s, '\n');
+					if (!Eol) Eol = State.s + StrlenW(State.s);
+					GAutoWString Value(NewStrW(State.s, Eol - State.s));
+					if (*State.s)
+						State.s++;
+					
+					Defines.Add(Name, Value.Release());
 				}
-				else break;
-
-				// Parse struct def
-				StructDef *Def = new StructDef;
-				if (Def)
+				else if (IsTok(L"struct"))
 				{
-					Def->Name = To8(LexCpp(s));
-
-					NextTok();
-					if (XCmp(t, ":") == 0)
+					// Parse struct def
+					StructDef *Def = new StructDef;
+					if (Def)
 					{
-						Literal("inherits");
-						Def->Base = To8(LexCpp(s));
-						NextTok();
-					}
-					CheckTok("{");
+						Def->Name = State.NextA(false);
 
-					while (!Error)
-					{
-						// Parse types...
-						NextTok();
-						DoType:
-
-						bool IsHidden = false;
-						if (t && XCmp(t, "hidden") == 0)
+						t = State.NextW();
+						if (XCmp(t, ":") == 0)
 						{
-							IsHidden = true;
-							NextTok();
+							Literal("inherits");
+							Def->Base = State.NextA(false);
+							t = State.NextW();
 						}
+						CheckTok("{");
 
-						VarDefType *Type = ParseType(t);
-						if (Type)
+						while (!State.Error)
 						{
-							VarDef *Var = new VarDef;
-							Var->Type = Type;
-							Var->Hidden = IsHidden;
-							Var->Name = To8(LexCpp(s));
-							if (Var->Name)
+							// Parse types...
+							t = State.NextW();
+							DoType:
+							if (!t)
 							{
-								Def->Vars.Add(Var);
+								Err(State, "No token");
+								State.Error = true;
+								break;
+							}
+							
+							if (IsTok(L"if"))
+							{
+								t = State.NextW();
+								CheckTok("(");
 								
-								NextTok();
-								if (t)
+								GAutoPtr<ConditionDef> c(new ConditionDef);
+								if (!c)
+									break;
+								
+								while (t = State.NextW(false))
 								{
-									if (XCmp(t, "[") == 0)
+									if (!XCmp(t, ")"))
 									{
-										// Array
-										int Depth = 0;
-										GStringPipe p;
-										while (true)
-										{
-											NextTok();
-											if (t)
-											{
-												if (XCmp(t, "[") == 0)
-												{
-													p.Push(t);
-													Depth++;
-													NextTok();
-												}
-												else if (XCmp(t, "]") == 0)
-												{
-													if (Depth)
-													{
-														p.Push(t);
-														Depth--;
-														NextTok();
-													}
-													else
-													{
-														NextTok();
-														break;
-													}
-												}
-												else
-												{
-													p.Push(t);
-												}
-											}
-											else
-											{
-												Err(s, b, "expected token");
-												break;
-											}
-										}
-
-										char16 *Len = p.NewStrW();
-										Var->Type->Length = LgiNewUtf16To8(Len);
-										DeleteArray(Len);
-										if (!Var->Type->Length)
-											Var->Type->Length = NewStr("");
+										DeleteArray(t);
+										break;
 									}
-
-									if (t && XCmp(t, "=") == 0)
+									c->Expression.Add(t);
+								}
+								
+								t = State.NextW();
+								CheckTok("{");
+								
+								while (t = State.NextW())
+								{
+									if (!XCmp(t, "}"))
 									{
-										// Constraint
-										Var->Value = TrimStr(To8(LexCpp(s)), "\"\'");
-										NextTok();
-									}
-									
-									if (t && XCmp(t, ";") == 0)
-									{
+										break;
 									}
 									else
 									{
-										Err(s, b, "expected ';'");
-										break;
+										VarDef *v = ParseVar(State, t);
+										if (!v)
+											break;
+										c->Members.Add(v);
 									}
-								}	
-								else
-								{
-									Err(s, b, "expected ';'");
-									break;
-								}							
+								}
+								
+								Def->Members.Add(c.Release());
 							}
-							else
-							{
-								Err(s, b, "missing variable name");
-								break;
-							}
-						}
-						else
-						{
-							char m[256], *u = LgiNewUtf16To8(t);
-							sprintf(m, "expected type, got '%s' instead", u);
-							Err(s, b, m);
-							DeleteArray(u);
-							Error = true;
-							break;
-						}
-
-						NextTok();
-						if (t)
-						{
-							if (XCmp(t, "}") == 0)
+							else if (IsTok(L"}"))
 							{
 								Literal(";");
 								break;
 							}
 							else
 							{
-								goto DoType;
+								VarDef *v = ParseVar(State, t);
+								if (!v)
+									break;
+								
+								Def->Members.Add(v);
 							}
 						}
-						else break;
-					}
 
-					if (Def->Base)
-					{
-						StructDef *Parent = GetStruct(Def->Base);
-						if (Parent)
+						if (Def->Base)
 						{
-							Parent->Children.Add(Def);
+							StructDef *Parent = GetStruct(Def->Base);
+							if (Parent)
+							{
+								Parent->Children.Add(Def);
+							}
+							else
+							{
+								Err(State, "parent class not defined.");
+							}
 						}
 						else
 						{
-							Err(s, b, "parent class not defined.");
+							Compiled.Add(Def);
 						}
-					}
-					else
-					{
-						Compiled.Add(Def);
 					}
 				}
 			}
-			
-			Mem.DeleteArrays();
-			DeleteArray(b);
 		}
 
-		return !Error;
+		return !State.Error;
 	}
 };
 
@@ -1916,7 +2412,7 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////////
-GVisualiseView::GVisualiseView(AppWnd *app)
+GVisualiseView::GVisualiseView(AppWnd *app, char *DefVisual)
 {
 	App = 0;
 	Value(150);
@@ -1935,7 +2431,13 @@ GVisualiseView::GVisualiseView(AppWnd *app)
 		{
 			for (int i=0; i<Files.Length(); i++)
 			{
-				Map->Lst->Insert(new StructureMap(App, Files[i]));
+				char *f = Files[i];
+				StructureMap *sm = new StructureMap(App, f);
+				if (sm)
+				{
+					Map->Lst->Insert(sm);
+					sm->Select(DefVisual && stristr(f, DefVisual));
+				}
 			}
 		}
 	}

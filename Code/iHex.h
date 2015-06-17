@@ -74,7 +74,7 @@ enum Controls
 
 /////////////////////////////////////////////////////////////////////////////
 extern const char *AppName;
-extern char16 *LexCpp(char16 *&s, bool ReturnString = true);
+// extern char16 *LexCpp(char16 *&s, bool ReturnString = true);
 
 /////////////////////////////////////////////////////////////////////////////
 class AppWnd : public GDocApp<GOptionsFile>, public GScriptContext
@@ -161,7 +161,7 @@ class GVisualiseView : public GSplitter
 	char Base[300];
 
 public:
-	GVisualiseView(AppWnd *app);
+	GVisualiseView(AppWnd *app, char *DefVisual = NULL);
 	int OnNotify(GViewI *c, int f);
 	void Visualise(char *Data, int Len, bool Little);
 };
