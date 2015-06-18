@@ -5,6 +5,9 @@
 #include "GUtf8.h"
 #include "GLexCpp.h"
 #include "resdefs.h"
+#ifndef INT32_MAX
+#define INT32_MAX 0x7fffffff
+#endif
 
 enum BaseType
 {
@@ -36,7 +39,11 @@ struct Basic
 
 struct BitReference
 {
-	uint8 *Ptr;
+	union
+	{
+		uint8 *Ptr;
+		UNativeInt Size;
+	};
 	int Bit;
 	int Len;
 	
@@ -55,6 +62,11 @@ struct BitReference
 	uint8 *Aligned()
 	{
 		return (Bit) ? Ptr + 1 : Ptr;
+	}
+	
+	UNativeInt AlignedSize()
+	{
+		return (Bit) ? Size + 1 : Size;
 	}
 
 	bool SeekBits(int Bits)
@@ -92,8 +104,14 @@ struct BitReference
 	{
 		if (b->Bits)
 		{
-			if (!SeekBits(b->Bits))
-				return false;
+			int WordSize = b->Bytes << 3;
+			Bit += b->Bits;
+			if (Bit >= WordSize)
+			{
+				Bit -= WordSize;
+				Ptr += b->Bytes;
+				Len -= b->Bytes;
+			}
 		}
 		else
 		{
@@ -139,24 +157,31 @@ struct BitReference
 		{
 			// Read 'Bits' bits
 			out = 0;
+			
+			int BitSz = sizeof(T) << 3;
+			if (BitSz == 32)
+			{
+				int asd=0;
+			}
+			
 			while (Bits > 0)
 			{
-				int Avail = 8 - Bit;
+				int Avail = BitSz - Bit;
 				int Rd = min(Avail, Bits);
 				int Mask = (1 << Rd) - 1;
-				int Shift = 8 - Rd - Bit;
+				int Shift = BitSz - Rd - Bit;
 				LgiAssert(Shift >= 0);
 				
 				out <<= Rd;
-				out |= ((*Ptr) >> Shift) & Mask;
+				out |= ( *((T*)Ptr) >> Shift) & Mask;
 				
 				Bits -= Rd;
 				Bit += Rd;
-				if (Bit == 8)
+				if (Bit >= BitSz)
 				{
-					Bit = 0;
-					Ptr++;
-					Len--;
+					Bit -= BitSz;
+					Ptr += sizeof(T);
+					Len -= sizeof(T);
 					if (Len <= 0)
 						return Bits > 0;
 				}
@@ -178,7 +203,7 @@ struct ViewContext : public BitReference
 	
 	uint32 Offset()
 	{
-		LgiAssert(Ptr != NULL && Ptr > Base);
+		LgiAssert(Ptr != NULL && Ptr >= Base);
 		return Ptr - Base;
 	}
 
@@ -338,7 +363,7 @@ public:
 		DeleteArray(Pad);
 	}
 
-	int Sizeof();
+	void Sizeof(BitReference &sz);
 };
 
 uint64 DeNibble(uint8 *ptr, int size)
@@ -374,7 +399,7 @@ struct Member
 	{
 	}
 	
-	virtual int64 Sizeof() = 0;
+	virtual void Sizeof(BitReference &sz) = 0;
 	virtual VarDef *IsVar() = 0;
 	virtual ConditionDef *IsCondition() = 0;
 };
@@ -401,17 +426,15 @@ struct ConditionDef : public Member
 	VarDef *IsVar() { return NULL; }
 	ConditionDef *IsCondition() { return this; }
 
-	int64 Sizeof()
+	void Sizeof(BitReference &sz)
 	{
 		if (!Eval)
-			return 0;
+			return;
 			
-		int64 Sz = 0;
 		for (unsigned i=0; i<Members.Length(); i++)
 		{
-			Sz += Members[i]->Sizeof();
+			Members[i]->Sizeof(sz);
 		}
-		return Sz;
 	}
 
 	bool GetVariant(const char *Name, GVariant &Value, char *Array = 0);
@@ -439,9 +462,10 @@ struct VarDef : public Member
 
 	VarDef *IsVar() { return this; }
 	ConditionDef *IsCondition() { return NULL; }
-	int64 Sizeof()
+	void Sizeof(BitReference &sz)
 	{
-		return Type ? Type->Sizeof() : 0;
+		if (Type)
+			Type->Sizeof(sz);
 	}
 
 	bool HasValue(char *&Str)
@@ -717,7 +741,7 @@ bool ConditionDef::GetVariant(const char *Name, GVariant &Value, char *Array)
 		VarDef *v = m->IsVar();
 		if (v)
 		{
-			if (v->Name && _stricmp(v->Name, Name) == 0)
+			if (v->Name && strcmp(v->Name, Name) == 0)
 			{
 				Value = v->CastInt(Addr[i], Little);
 				return true;
@@ -754,19 +778,17 @@ public:
 		DeleteArray(Base);
 	}
 
-	int Sizeof()
+	void Sizeof(BitReference &sz)
 	{
-		int Size = 0;
 		for (int i=0; i<Members.Length(); i++)
 		{
-			Size += Members[i]->Sizeof();
+			Members[i]->Sizeof(sz);
 		}
-		return Size;
 	}
 	
 	StructDef *GetStruct(const char *n)
 	{
-		if (Name && !stricmp(Name, n))
+		if (Name && !strcmp(Name, n))
 			return this;
 
 		for (int i=0; i<Children.Length(); i++)
@@ -886,19 +908,19 @@ public:
 	}
 };
 
-int VarDefType::Sizeof()
+void VarDefType::Sizeof(BitReference &sz)
 {
 	if (Base)
 	{
-		return Base->Bytes;
+		if (Base->Bits)
+			sz.SeekBits(Base->Bits);
+		else
+			sz.SeekBytes(Base->Bytes);
 	}
 	else if (Cmplex)
 	{
-		return Cmplex->Sizeof();
+		Cmplex->Sizeof(sz);
 	}
-	
-	LgiAssert(!"This should never happen right?");
-	return 0;
 }
 
 class StructureMap : public GListItem, public GDom
@@ -971,7 +993,7 @@ public:
 				Var = Mem->IsVar();
 				if (Var)
 				{
-					if (Var->Name && stricmp(Var->Name, Name) == 0)
+					if (Var->Name && strcmp(Var->Name, Name) == 0)
 					{
 						Value = Var->CastInt(s.Addr[n], Little);
 						return true;
@@ -990,13 +1012,15 @@ public:
 		char16 *v = Defines.Find(Name);
 		if (v)
 		{
-			Value = AtoiW(v);
-			return true;
+			GAutoString u(LgiNewUtf16To8(v));
+			GScriptEngine e(App, App, NULL);
+			bool Status = e.EvaluateExpression(&Value, this, u);
+			return Status;
 		}
 
 		return false;
 	}
-	
+
 	template<typename T>
 	T *DisplayString(T *str, int chars)
 	{
@@ -1054,7 +1078,7 @@ public:
 		{
 			View.Out.Print("%s%s", Tabs, d->Name);
 			if (ArrayLength > 1)
-				View.Out.Print(":\n");
+				View.Out.Print("[%i]:\n", ArrayLength);
 			else
 				View.Out.Print(" = ");
 		}
@@ -1180,7 +1204,7 @@ public:
 		{
 			View.Out.Print("%s%s", Tabs, d->Name);
 			if (ArrayLength > 1)
-				View.Out.Print(":\n");
+				View.Out.Print("[%i]:\n", ArrayLength);
 			else
 				View.Out.Print(" = ");
 		}
@@ -1273,7 +1297,7 @@ public:
 		{
 			View.Out.Print("%s%s", Tabs, d->Name);
 			if (ArrayLength > 1)
-				View.Out.Print(":\n");
+				View.Out.Print("[%i]:\n", ArrayLength);
 			else
 				View.Out.Print(" = ");
 		}
@@ -1405,7 +1429,7 @@ public:
 		{
 			View.Out.Print("%s%s", Tabs, d->Name);
 			if (ArrayLength > 1)
-				View.Out.Print(":\n");
+				View.Out.Print("[%i]:\n", ArrayLength);
 			else
 				View.Out.Print(" = ");
 		}
@@ -1500,11 +1524,6 @@ public:
 		VarDef *d = Mem->IsVar();
 		if (d)
 		{
-			if (d->Debug)
-			{
-				int asd=0;
-			}
-			
 			int ArrayLength = 1;
 			if (d->Type->Length.Length())
 			{
@@ -1522,25 +1541,32 @@ public:
 				
 				LgiAssert(DimStr.Length() == 1);
 				
-				// Resolve the array length of this var
-				// Evaluate expression
-				GScriptEngine e(App, App, NULL);
-				GVariant v;
-				if (e.EvaluateExpression(&v, this, DimStr[0]))
+				if (ValidStr(DimStr[0]))
 				{
-					ArrayLength = v.CastInt32();
+					// Resolve the array length of this var
+					// Evaluate expression
+					GScriptEngine e(App, App, NULL);
+					GVariant v;
+					if (e.EvaluateExpression(&v, this, DimStr[0]))
+					{
+						ArrayLength = v.CastInt32();
 
-					if (ArrayLength < 0)
-						ArrayLength = 0;
+						if (ArrayLength < 0)
+							ArrayLength = 0;
 
-					int Sizeof = d->Sizeof();
-					if (ArrayLength * Sizeof > View.Len)
-						ArrayLength = View.Len / Sizeof;
+						BitReference Sz;
+						Sz.Len = INT32_MAX;
+						d->Sizeof(Sz);
+						if (ArrayLength * Sz.AlignedSize() > View.Len)
+							ArrayLength = View.Len / Sz.AlignedSize();
+					}
+					else
+					{
+						View.Out.Print("Error: evaluating the expression '%s'\n", d->Type->Length);
+					}
 				}
-				else
-				{
-					View.Out.Print("Error: evaluating the expression '%s'\n", d->Type->Length);
-				}
+				
+				DimStr.DeleteArrays();
 			}
 
 			if (ArrayLength == 0)
@@ -1593,11 +1619,19 @@ public:
 				StructDef *s = d->Type->Cmplex;
 				StructDef *sub = s->MatchChild(View, Little);
 
+				if (d->Debug)
+				{
+					int asd=0;
+				}
+
 				int Offset = View.Offset();
 				if (sub)
-					View.Out.Print("%s%s.%s (@ %i/0x%x) =\n", Tabs, sub->Name, d->Name, Offset, Offset);
+					View.Out.Print("%s%s.%s", Tabs, sub->Name, d->Name);
 				else
-					View.Out.Print("%s%s (@ %i/0x%x) =\n", Tabs, d->Name, Offset, Offset);
+					View.Out.Print("%s%s", Tabs, d->Name);
+				if (ArrayLength != 1)
+					View.Out.Print("[%i]", ArrayLength);
+				View.Out.Print(" (@ %i/0x%x) =\n", Offset, Offset);
 				
 				if (ArrayLength == 1)
 					View.Out.Print("%s{\n", Tabs);
@@ -1687,7 +1721,8 @@ public:
 		bool Error = false;
 		for (Scope.Pos=0; Scope.Pos<s->Members.Length() && View.Len > 0; Scope.Pos++)
 		{
-			if (!DoMember(s->Members[Scope.Pos], View, Scope, Depth))
+			Member *Mem = s->Members[Scope.Pos];
+			if (!DoMember(Mem, View, Scope, Depth))
 			{
 				Error = true;
 				break;
@@ -2077,30 +2112,28 @@ public:
 		return Var.Release();
 	}
 
+	bool DoDefine(CompileState &State)
+	{
+		char *Name = State.NextA();
+		while (*State.s && strchr(WhiteSpace, *State.s))
+			State.s++;
+		char16 *Eol = StrchrW(State.s, '\n');
+		if (!Eol) Eol = State.s + StrlenW(State.s);
+		GAutoWString Value(NewStrW(State.s, Eol - State.s));		
+		State.s = *Eol ? Eol + 1 : Eol;
+		
+		Defines.Add(Name, Value.Release());
+		return true;
+	}
+
 	bool Compile()
 	{
 		CompileState State(GetBody());
 		Compiled.DeleteObjects();
 		if (State.Base)
 		{
-			#ifndef __GNUC__
-			#define IsTok(lit) \
-				(t != NULL && StricmpW(t, lit) == 0)
 			#define CheckTok(lit) \
-				if (!(t && StricmpW(t, L##lit) == 0)) \
-				{ \
-					char m[256], *u = LgiNewUtf16To8(t); \
-					sprintf(m, "expecting '" ##lit "', got '%s'", u); \
-					Err(State, m); \
-					DeleteArray(u) \
-					State.Error = true; \
-					break; \
-				}
-			#else
-			#define IsTok(lit) \
-				(t != NULL && XCmp(t, lit) == 0)
-			#define CheckTok(lit) \
-				if (!(t && XCmp(t, lit) == 0)) \
+				if (!(t && XCmp(t, ##lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '%s', got '%s'", lit, u); \
@@ -2109,7 +2142,6 @@ public:
 					State.Error = true; \
 					break; \
 				}
-			#endif
 			#define Literal(lit) \
 				t = State.NextW(); \
 				CheckTok(lit);
@@ -2123,18 +2155,10 @@ public:
 
 				if (!XCmp(t, "#define"))
 				{
-					char *Name = State.NextA();
-					while (*State.s && strchr(WhiteSpace, *State.s))
-						State.s++;
-					char16 *Eol = StrchrW(State.s, '\n');
-					if (!Eol) Eol = State.s + StrlenW(State.s);
-					GAutoWString Value(NewStrW(State.s, Eol - State.s));
-					if (*State.s)
-						State.s++;
-					
-					Defines.Add(Name, Value.Release());
+					if (!DoDefine(State))
+						return false;
 				}
-				else if (IsTok(L"struct"))
+				else if (!XCmp(t, "struct"))
 				{
 					// Parse struct def
 					StructDef *Def = new StructDef;
@@ -2163,7 +2187,12 @@ public:
 								break;
 							}
 							
-							if (IsTok(L"if"))
+							if (!XCmp(t, "#define"))
+							{
+								if (!DoDefine(State))
+									return false;
+							}
+							else if (!XCmp(t, "if"))
 							{
 								t = State.NextW();
 								CheckTok("(");
@@ -2202,7 +2231,7 @@ public:
 								
 								Def->Members.Add(c.Release());
 							}
-							else if (IsTok(L"}"))
+							else if (!XCmp(t,"}"))
 							{
 								Literal(";");
 								break;
@@ -2259,12 +2288,9 @@ public:
 		Map = map;
 		Txt = 0;
 
-		GRect r(0, 0, 700, 600);
-		SetPos(r);
 		Name("Map Editor");
 		if (Attach(0))
 		{
-			MoveToCenter();
 			LoadFromResource(IDD_MAP_EDIT, this);
 			Txt = dynamic_cast<GTextView3*>(FindControl(IDC_TEXT));
 			if (Txt)
@@ -2272,6 +2298,11 @@ public:
 				Txt->Sunken(true);
 				OnPosChange();
 			}
+
+			GRect r(0, 0, 1000, 900);
+			SetPos(r);
+			MoveSameScreen(App);
+
 			AttachChildren();
 
 			if (Map)
@@ -2395,7 +2426,7 @@ public:
 //////////////////////////////////////////////////////////////////////////////////
 GVisualiseView::GVisualiseView(AppWnd *app, char *DefVisual)
 {
-	App = 0;
+	App = app;
 	Value(150);
 	IsVertical(false);
 	Raised(false);
