@@ -6,16 +6,195 @@
 #include "GLexCpp.h"
 #include "resdefs.h"
 
-struct ViewContext
+enum BaseType
+{
+	TypeNull,
+	TypeInt,
+	TypeFloat,
+	TypeChar,
+	TypeStrZ,
+	TypeNibble,
+};
+
+struct Basic
+{
+	BaseType Type;
+	uint8 Bytes;
+	int Bits;
+	bool Signed;
+	bool Array;
+	
+	Basic()
+	{
+		Type = TypeNull;
+		Bytes = 0;
+		Bits = 0;
+		Signed = false;
+		Array = false;
+	}
+};
+
+struct BitReference
+{
+	uint8 *Ptr;
+	int Bit;
+	int Len;
+	
+	BitReference()
+	{
+		Ptr = NULL;
+		Bit = 0;
+		Len = 0;
+	}
+	
+	bool IsValid()
+	{
+		return Ptr != NULL && Len > 0;
+	}
+
+	uint8 *Aligned()
+	{
+		return (Bit) ? Ptr + 1 : Ptr;
+	}
+
+	bool SeekBits(int Bits)
+	{
+		while (Bits)
+		{
+			if (Len <= 0)
+				return false;
+			
+			int Avail = 8 - Bit;
+			int Sk = min(Bits, Avail);
+			Bits -= Sk;
+			Bit += Sk;
+			if (Bit >= 8)
+			{
+				LgiAssert(Bit == 8);
+				Bit = 0;
+				Ptr++;
+				Len--;
+			}
+		}
+		
+		return true;
+	}
+
+	bool SeekBytes(int Bytes)
+	{
+		LgiAssert(Bit == 0);
+		Ptr += Bytes;
+		Len -= Bytes;
+		return true;
+	}
+	
+	bool Seek(Basic *b)
+	{
+		if (b->Bits)
+		{
+			if (!SeekBits(b->Bits))
+				return false;
+		}
+		else
+		{
+			Ptr += b->Bytes;
+			Len -= b->Bytes;
+		}
+		
+		return true;
+	}
+
+	bool AlignForBasic(Basic *b)
+	{
+		if (b->Bits == 0 && Bit)
+		{
+			// Byte align..
+			if (Len > 0)
+			{
+				Bit = 0;
+				Ptr++;
+				Len--;
+			}
+			else
+			{
+				// No more data
+				return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	template<typename T>
+	bool ReadBits(T &out, int Bits)
+	{
+		if (Bits == 0)
+		{
+			// Read whole type
+			LgiAssert(Bit == 0);
+			out = *((T*)Ptr);
+			Ptr += sizeof(T);
+		}
+		else
+		{
+			// Read 'Bits' bits
+			out = 0;
+			while (Bits > 0)
+			{
+				int Avail = 8 - Bit;
+				int Rd = min(Avail, Bits);
+				int Mask = (1 << Rd) - 1;
+				int Shift = 8 - Rd - Bit;
+				LgiAssert(Shift >= 0);
+				
+				out <<= Rd;
+				out |= ((*Ptr) >> Shift) & Mask;
+				
+				Bits -= Rd;
+				Bit += Rd;
+				if (Bit == 8)
+				{
+					Bit = 0;
+					Ptr++;
+					Len--;
+					if (Len <= 0)
+						return Bits > 0;
+				}
+			}
+		}
+		
+		return true;
+	}
+};
+
+struct ViewContext : public BitReference
 {
 	GStream &Out;
-	char *Base;
-	char *Data;
-	int Len;
-	int Bit;
+	uint8 *Base;
 	
 	ViewContext(GStream &o) : Out(o)
 	{
+	}
+	
+	uint32 Offset()
+	{
+		LgiAssert(Ptr != NULL && Ptr > Base);
+		return Ptr - Base;
+	}
+
+	void Trace(const char *s)
+	{
+		LgiTrace("%p, %x:%i - %s\n", Ptr, Offset(), Bit, s);
+	}
+};
+
+struct AddressRef : public GArray<BitReference>
+{
+	AddressRef &operator = (const ViewContext &c)
+	{
+		BitReference &r = New();
+		r = c;
+		return *this;
 	}
 };
 
@@ -115,34 +294,6 @@ uint64 IfSwap(uint64 i, bool Little)
 	return i;
 }
 
-enum BaseType
-{
-	TypeNull,
-	TypeInt,
-	TypeFloat,
-	TypeChar,
-	TypeStrZ,
-	TypeNibble,
-};
-
-struct Basic
-{
-	BaseType Type;
-	uint8 Bytes;
-	int Bits;
-	bool Signed;
-	bool Array;
-	
-	Basic()
-	{
-		Type = TypeNull;
-		Bytes = 0;
-		Bits = 0;
-		Signed = false;
-		Array = false;
-	}
-};
-
 struct ArrayDimension
 {
 	GArray<char16*> Expression;
@@ -190,7 +341,7 @@ public:
 	int Sizeof();
 };
 
-uint64 DeNibble(char *ptr, int size)
+uint64 DeNibble(uint8 *ptr, int size)
 {
 	uint64 n = 0;
 	int bytes = size >> 1;
@@ -234,7 +385,7 @@ struct ConditionDef : public Member
 	int Eval;
 	GArray<char16*> Expression;
 	GArray<Member*> Members;
-	GArray<char*> Addr;
+	AddressRef Addr;
 	
 	ConditionDef() : Member(MemberCondition)
 	{
@@ -352,58 +503,46 @@ struct VarDef : public Member
 		return false;
 	}
 
-	float CastFloat(char *Data, bool Little)
+	float CastFloat(BitReference &Addr, bool Little)
 	{
 		float f = 0;
 
-		if (Type->Base)
+		Basic *b = Type->Base;
+		if (b)
 		{
-			switch (Type->Base->Type)
+			switch (b->Type)
 			{
 				default:
 					LgiAssert(!"Not impl");
 					break;
 				case TypeInt:
 				{
-					switch (Type->Base->Bytes)
-					{
-						case 1:
-							f = *((int8*)Data);
-							break;
-						case 2:
-							f = *((int16*)Data);
-							break;
-						case 4:
-							f = (float) *((int32*)Data);
-							break;
-						case 8:
-							f = (float) *((int64*)Data);
-							break;
-					}
+					int64 Val = CastInt(Addr, Little);
+					f = (float)Val;
 					break;
 				}
 				case TypeFloat:
 				{
-					if (Type->Base->Bytes == 4)
+					if (b->Bytes == 4)
 					{
-						f = *((float*)Data);
+						f = *((float*)Addr.Aligned());
 						break;
 					}
-					else if (Type->Base->Bytes == 8)
+					else if (b->Bytes == 8)
 					{
-						f = *((double*)Data);
+						f = *((double*)Addr.Aligned());
 					}
 					break;
 				}
 				case TypeChar:
 				case TypeStrZ:
 				{
-					f = atof(Data);
+					f = atof((char*)Addr.Aligned());
 					break;
 				}
 				case TypeNibble:
 				{
-					uint64 v = DeNibble(Data, Type->Base->Bytes);
+					uint64 v = DeNibble(Addr.Aligned(), Type->Base->Bytes);
 					f = (float)(int64)v;
 					break;
 				}
@@ -413,58 +552,46 @@ struct VarDef : public Member
 		return f;
 	}
 
-	double CastDouble(char *Data, bool Little)
+	double CastDouble(BitReference &Addr, bool Little)
 	{
 		double f = 0;
 
-		if (Type->Base)
+		Basic *b = Type->Base;
+		if (b)
 		{
-			switch (Type->Base->Type)
+			switch (b->Type)
 			{
 				default:
 					LgiAssert(!"Not impl");
 					break;
 				case TypeInt:
 				{
-					switch (Type->Base->Bytes)
-					{
-						case 1:
-							f = *((int8*)Data);
-							break;
-						case 2:
-							f = *((int16*)Data);
-							break;
-						case 4:
-							f = *((int32*)Data);
-							break;
-						case 8:
-							f = (double)*((int64*)Data);
-							break;
-					}
+					int64 Val = CastInt(Addr, Little);
+					f = (double)Val;
 					break;
 				}
 				case TypeFloat:
 				{
-					if (Type->Base->Bytes == 4)
+					if (b->Bytes == 4)
 					{
-						f = *((float*)Data);
+						f = *((float*)Addr.Aligned());
 						break;
 					}
-					else if (Type->Base->Bytes == 8)
+					else if (b->Bytes == 8)
 					{
-						f = *((double*)Data);
+						f = *((double*)Addr.Aligned());
 					}
 					break;
 				}
 				case TypeChar:
 				case TypeStrZ:
 				{
-					f = atof(Data);
+					f = atof((char*)Addr.Aligned());
 					break;
 				}
 				case TypeNibble:
 				{
-					uint64 v = DeNibble(Data, Type->Base->Bytes);
+					uint64 v = DeNibble(Addr.Aligned(), Type->Base->Bytes);
 					f = (double)(int64)v;
 					break;
 				}
@@ -474,110 +601,100 @@ struct VarDef : public Member
 		return f;
 	}
 
-	int64 CastInt(char *Data, bool Little)
+	int64 CastInt(BitReference Addr, bool Little)
 	{
-		int64 i = 0;
+		Basic *b = Type->Base;
+		if (!b)
+			return 0;
 
-		if (Type->Base)
+		int64 i = 0;
+		switch (b->Type)
 		{
-			switch (Type->Base->Type)
+			default:
+				LgiAssert(!"Not impl");
+				break;
+			case TypeInt:
 			{
-				default:
-					LgiAssert(!"Not impl");
-					break;
-				case TypeInt:
+				switch (b->Bytes)
 				{
-					switch (Type->Base->Bytes)
+					case 1:
 					{
-						case 1:
-						{
-							if (Type->Base->Signed)
-							{
-								int8 *n = (int8*)Data;
-								i = *n;
-							}
-							else
-							{
-								uint8 *n = (uint8*)Data;
-								i = *n;
-							}
-							break;
-						}
-						case 2:
-						{
-							if (Type->Base->Signed)
-							{
-								int16 *n = (int16*)Data;
-								i = IfSwap(*n, Little);
-							}
-							else
-							{
-								uint16 *n = (uint16*)Data;
-								i = IfSwap(*n, Little);
-							}
-							break;
-						}
-						case 4:
-						{
-							if (Type->Base->Signed)
-							{
-								int32 *n = (int32*)Data;
-								i = IfSwap(*n, Little);
-							}
-							else
-							{
-								uint32 *n = (uint32*)Data;
-								i = IfSwap(*n, Little);
-							}
-							break;
-						}
-						case 8:
-						{
-							if (Type->Base->Signed)
-							{
-								int64 *n = (int64*)Data;
-								i = IfSwap(*n, Little);
-							}
-							else
-							{
-								uint64 *n = (uint64*)Data;
-								i = IfSwap(*n, Little);
-							}
-							break;
-						}
+						uint8 Val;
+						Addr.ReadBits(Val, b->Bits);
+						if (b->Signed)
+							i = (int8)Val;
+						else
+							i = (uint8)Val;
+						break;
 					}
-					break;
-				}
-				case TypeFloat:
-				{
-					switch (Type->Base->Bytes)
+					case 2:
 					{
-						case 4:
-						{
-							float *n = (float*)Data;
-							i = (int64)*n;
-							break;
-						}
-						case 8:
-						{
-							double *n = (double*)Data;
-							i = (int64)*n;
-							break;
-						}
+						uint16 Val;
+						Addr.ReadBits(Val, b->Bits);
+						if (b->Signed)
+							i = IfSwap((int16)Val, Little);
+						else
+							i = IfSwap((uint16)Val, Little);
+						break;
 					}
-					break;
+					case 4:
+					{
+						uint32 Val;
+						Addr.ReadBits(Val, b->Bits);
+						if (b->Signed)
+							i = IfSwap((int32)Val, Little);
+						else
+							i = IfSwap((uint32)Val, Little);
+						break;
+					}
+					case 8:
+					{
+						uint64 Val;
+						Addr.ReadBits(Val, b->Bits);
+						if (b->Signed)
+							i = IfSwap((int64)Val, Little);
+						else
+							i = IfSwap((uint64)Val, Little);
+						break;
+					}
 				}
-				case TypeChar:
-				case TypeStrZ:
+				break;
+			}
+			case TypeFloat:
+			{
+				LgiAssert(Addr.Bit == 0);
+				switch (b->Bytes)
 				{
-					i = atoi(Data);
-					break;
+					case 4:
+					{
+						float *n = (float*)Addr.Aligned();
+						i = (int64)*n;
+						break;
+					}
+					case 8:
+					{
+						double *n = (double*)Addr.Aligned();
+						i = (int64)*n;
+						break;
+					}
+					default:
+					{
+						LgiAssert(!"Unexpected floating pt length");
+						break;
+					}
 				}
-				case TypeNibble:
-				{
-					i = DeNibble(Data, Type->Base->Bytes);
-					break;
-				}
+				break;
+			}
+			case TypeChar:
+			case TypeStrZ:
+			{
+				i = atoi((char*)Addr.Aligned());
+				break;
+			}
+			case TypeNibble:
+			{
+				i = DeNibble(Addr.Aligned(), b->Bytes);
+				break;
 			}
 		}
 
@@ -669,9 +786,9 @@ public:
 		// Check to see if any child struct specializations match
 		for (int c=0; c<Children.Length(); c++)
 		{
-			char *d = View.Data;
-			int l = View.Len;
-			if (Children[c]->Match(d, l, Little))
+			BitReference r;
+			r = View;
+			if (Children[c]->Match(r, Little))
 			{
 				return Children[c];
 			}
@@ -680,62 +797,60 @@ public:
 		return NULL;
 	}
 
-	bool Match(char *&Data, int &Len, bool Little)
+	bool Match(BitReference &Addr, bool Little)
 	{
 		bool Status = false;
 
-		if (Data && Len > 0)
+		if (Addr.IsValid())
 		{
 			for (int i=0; i<Members.Length(); i++)
 			{
 				Member *Mem = Members[i];
 				VarDef *d = Mem->IsVar();
-				if (d)
+				if (d && d->Type)
 				{
-					if (d->Type->Base)
+					Basic *b = d->Type->Base;
+					if (b)
 					{
-						if (d->Type &&
-							d->Type->Base)
+						if ((b->Type == TypeChar) || (b->Type == TypeStrZ))
 						{
-							if ((d->Type->Base->Type == TypeChar) || (d->Type->Base->Type == TypeStrZ))
+							char *Str = 0;
+							if (d->HasValue(Str))
 							{
-								char *Str = 0;
-								if (d->HasValue(Str))
+								if (Str && strnicmp((char*)Addr.Aligned(), Str, strlen(Str)) != 0)
 								{
-									if (Str && strnicmp(Data, Str, strlen(Str)) != 0)
-									{
-										return false;
-									}
-									else Status = true;
+									return false;
 								}
-							}
-							else if (d->Type->Base->Type == TypeInt)
-							{
-								int Val = 0;
-								if (d->HasValue(Val))
-								{
-									uint32 i = d->CastInt(Data, Little);
-									if (i != Val)
-									{
-										return false;
-									}
-									else Status = true;
-								}
-							}
-							else if (d->Type->Base->Type == TypeFloat)
-							{
-								float Val = 0;
-								if (d->HasValue(Val))
-								{
-									float f = d->CastFloat(Data, Little);
-									if (f != Val)
-									{
-										return false;
-									}
-									else Status = true;
-								}
+								else Status = true;
 							}
 						}
+						else if (d->Type->Base->Type == TypeInt)
+						{
+							int Val = 0;
+							if (d->HasValue(Val))
+							{
+								uint64 i = d->CastInt(Addr, Little);
+								if (i != Val)
+								{
+									return false;
+								}
+								else Status = true;
+							}
+						}
+						else if (d->Type->Base->Type == TypeFloat)
+						{
+							float Val = 0;
+							if (d->HasValue(Val))
+							{
+								float f = d->CastFloat(Addr, Little);
+								if (f != Val)
+								{
+									return false;
+								}
+								else Status = true;
+							}
+						}
+						else LgiAssert(0);
 
 						int Length = 1;
 						if (d->Type->Length.Length() > 0)
@@ -751,12 +866,13 @@ public:
 							break;
 						}
 
-						Data += d->Type->Base->Bytes * Length;
-						Len -= d->Type->Base->Bytes * Length;
+						LgiAssert(b->Bits == 0); // impl bit seeking support?
+						Addr.Ptr += b->Bytes * Length;
+						Addr.Len -= b->Bytes * Length;
 					}
 					else if (d->Type->Cmplex)
 					{
-						Status |= d->Type->Cmplex->Match(Data, Len, Little);
+						Status |= d->Type->Cmplex->Match(Addr, Little);
 					}
 					else
 					{
@@ -799,7 +915,7 @@ class StructureMap : public GListItem, public GDom
 	{
 		int Pos;
 		GArray<Member*> *Members;
-		GArray<char*> Addr;
+		AddressRef Addr;
 	};	
 	GArray<ScopeType> Stack;
 
@@ -916,105 +1032,19 @@ public:
 
 	/// This function reads an arbitrary number of bits from 'View' to 'Out'	
 	template<typename T>
-	bool ReadBits
+	bool Read
 	(
 		/// The output type (integer only)
 		T &Out,
 		/// The input stream of bytes. A copy is used to avoid
 		/// changing the contents of the source View. Updating
 		/// the position is separate to reading the data.
-		ViewContext View,
+		BitReference Ref,
 		/// The number of bits to read
 		int Bits
 	)
 	{
-		Out = 0;
-		
-		while (Bits > 0)
-		{
-			if (View.Len <= 0)
-				return false;
-
-			// How many bits are available in the current byte;
-			int Avail = 8 - View.Bit;
-			int Rd = min(Bits, Avail);
-			int Mask = (1 << Rd) - 1;
-			int Shift = 8 - View.Bit - Rd;
-			Out <<= Rd;
-			Out |= (*View.Data >> Shift) & Mask;			
-			Bits -= Rd;
-			View.Bit += Rd;
-			if (View.Bit >= 8)
-			{
-				// Move to next byte...
-				LgiAssert(View.Bit == 8);
-				View.Bit = 0;
-				View.Data++;
-				View.Len--;
-			}
-		}
-		
-		return true;
-	}
-	
-	bool SeekBits(ViewContext &v, int Bits)
-	{
-		while (Bits)
-		{
-			if (v.Len <= 0)
-				return false;
-			
-			int Avail = 8 - v.Bit;
-			int Sk = min(Bits, Avail);
-			Bits -= Sk;
-			v.Bit += Sk;
-			if (v.Bit >= 8)
-			{
-				LgiAssert(v.Bit == 8);
-				v.Bit = 0;
-				v.Data++;
-				v.Len--;
-			}
-		}
-		
-		return true;
-	}
-	
-	bool Seek(ViewContext &View, Basic *b)
-	{
-		if (b->Bits)
-		{
-			if (!SeekBits(View, b->Bits))
-				return false;
-		}
-		else
-		{
-			View.Data += b->Bytes;
-			View.Len -= b->Bytes;
-		}
-		
-		return true;
-	}
-	
-	bool ByteAlign(ViewContext &View, Basic *b)
-	{
-		if (b->Bits == 0 && View.Bit)
-		{
-			// Byte align..
-			if (View.Len > 0)
-			{
-				View.Bit = 0;
-				View.Data++;
-				View.Len--;
-			}
-			else
-			{
-				// No more data
-				return false;
-			}
-		}
-		
-		return true;
+		return Ref.ReadBits(Out, Bits);
 	}
 	
 	bool DoInt(VarDef *d, ViewContext &View, int &ArrayLength)
@@ -1031,47 +1061,27 @@ public:
 		
 		for (int n=0; n<ArrayLength && View.Len >= b->Bytes; n++)
 		{
-			ByteAlign(View, b);
-			
-			if (d->Type->Base->Bits == 0 && View.Bit)
-			{
-				// Byte align..
-				if (View.Len > 0)
-				{
-					View.Bit = 0;
-					View.Data++;
-					View.Len--;
-				}
-				else
-				{
-					// No more data
-					return false;
-				}
-			}
+			if (!View.AlignForBasic(b))
+				return false;
 			
 			if (!d->Hidden)
 			{
 				if (ArrayLength > 1)
-					View.Out.Print("\t%s[%i] = ", Tabs, n);
+					View.Out.Print("  %s[%i] = ", Tabs, n);
 				char *LeadIn = ArrayLength > 1 ? Tabs : (char*)"";
+
+				/*
+				if (b->Bits)
+					View.Trace(d->Name);
+				*/
 
 				switch (b->Bytes)
 				{
 					case 1:
 					{
 						uint8 Byte;
-						if (b->Bits)
-						{
-							// Bitfield
-							if (!ReadBits(Byte, View, b->Bits))
-								return false;
-						}
-						else
-						{
-							// Whole byte data
-							Byte = *View.Data;
-						}
-						
+						if (!Read(Byte, View, b->Bits))
+							return false;
 						if (b->Signed)
 							View.Out.Print("%s%i (0x%02.2x)\n", LeadIn, (int8)Byte, (int8)Byte);
 						else
@@ -1081,17 +1091,8 @@ public:
 					case 2:
 					{
 						uint16 Short;
-						if (b->Bits)
-						{
-							// Bitfield
-							if (!ReadBits(Short, View, b->Bits))
-								return false;
-						}
-						else
-						{
-							// Whole byte data
-							Short = *((uint16*)View.Data);
-						}
+						if (!Read(Short, View, b->Bits))
+							return false;
 						
 						if (b->Signed)
 						{
@@ -1108,17 +1109,8 @@ public:
 					case 4:
 					{
 						uint32 Int;
-						if (b->Bits)
-						{
-							// Bitfield
-							if (!ReadBits(Int, View, b->Bits))
-								return false;
-						}
-						else
-						{
-							// Whole byte data
-							Int = *((uint32*)View.Data);
-						}
+						if (!Read(Int, View, b->Bits))
+							return false;
 						
 						if (b->Signed)
 						{
@@ -1135,17 +1127,8 @@ public:
 					case 8:
 					{
 						uint64 Long;
-						if (b->Bits)
-						{
-							// Bitfield
-							if (!ReadBits(Long, View, b->Bits))
-								return false;
-						}
-						else
-						{
-							// Whole byte data
-							Long = *((uint64*)View.Data);
-						}
+						if (!Read(Long, View, b->Bits))
+							return false;
 
 						if (b->Signed)
 						{
@@ -1173,7 +1156,9 @@ public:
 			int Val = 0;
 			if (d->HasValue(Val))
 			{
-				int i = d->CastInt(View.Data, Little);
+				BitReference Ref;
+				Ref = View;
+				int i = d->CastInt(Ref, Little);
 				if (i != Val)
 				{
 					View.Out.Print("%sValue Mismatch!\n", Tabs);
@@ -1181,7 +1166,7 @@ public:
 				}
 			}
 
-			if (!Seek(View, b))
+			if (!View.Seek(b))
 				return false;
 		}
 		
@@ -1214,7 +1199,7 @@ public:
 					{
 						LgiAssert(sizeof(float) == 4);
 						
-						float flt = *((float*)View.Data);
+						float flt = *((float*)View.Ptr);
 						#define Swap(a, b) { uint8 t = a; a = b; b = t; }
 						
 						if (!Little)
@@ -1231,7 +1216,7 @@ public:
 						float Val = 0;
 						if (d->HasValue(Val))
 						{
-							if (d->CastFloat(View.Data, Little) != Val)
+							if (d->CastFloat(View, Little) != Val)
 							{
 								View.Out.Print("%sValue Mismatch!\n", Tabs);
 								return false;
@@ -1243,7 +1228,7 @@ public:
 					{
 						LgiAssert(sizeof(double) == 8);
 
-						double dbl = *((double*)View.Data);
+						double dbl = *((double*)View.Aligned());
 
 						if (!Little)
 						{
@@ -1259,7 +1244,7 @@ public:
 						double Val = 0;
 						if (d->HasValue(Val))
 						{
-							if (d->CastDouble(View.Data, Little) != Val)
+							if (d->CastDouble(View, Little) != Val)
 							{
 								View.Out.Print("%sValue Mismatch!\n", Tabs);
 								return false;
@@ -1275,8 +1260,7 @@ public:
 				}
 			}
 
-			View.Data += b->Bytes;
-			View.Len -= b->Bytes;
+			View.Seek(b);
 		}
 		
 		return true;
@@ -1306,27 +1290,27 @@ public:
 				{
 					case 2:
 					{
-						uint8 n = DeNibble(View.Data, b->Bytes);
+						uint8 n = DeNibble(View.Aligned(), b->Bytes);
 						View.Out.Print("%s%u (0x%02.2x)\n", LeadIn, n, n);
 						break;
 					}
 					case 4:
 					{
-						uint16 v = DeNibble(View.Data, b->Bytes);
+						uint16 v = DeNibble(View.Aligned(), b->Bytes);
 						uint16 n = IfSwap(v, Little);
 						View.Out.Print("%s%u (0x%04.4x)\n", LeadIn, n, n);
 						break;
 					}
 					case 8:
 					{
-						uint32 v = DeNibble(View.Data, b->Bytes);
+						uint32 v = DeNibble(View.Aligned(), b->Bytes);
 						uint32 n = IfSwap(v, Little);
 						View.Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
 						break;
 					}
 					case 16:
 					{
-						uint64 v = DeNibble(View.Data, b->Bytes);
+						uint64 v = DeNibble(View.Aligned(), b->Bytes);
 						uint64 n = IfSwap(v, Little);
 						View.Out.Print("%s%I64u (0x%016.16I64x)\n", LeadIn, n, n);
 						break;
@@ -1340,15 +1324,14 @@ public:
 			int Val = 0;
 			if (d->HasValue(Val))
 			{
-				if (d->CastInt(View.Data, Little) != Val)
+				if (d->CastInt(View, Little) != Val)
 				{
 					View.Out.Print("%sValue Mismatch!\n", Tabs);
 					return false;
 				}
 			}
 
-			View.Data += b->Bytes;
-			View.Len -= b->Bytes;
+			View.Seek(b);
 		}
 		
 		return true;
@@ -1366,7 +1349,7 @@ public:
 			else if (d->Type->Base->Bytes == 1)
 			{
 				// char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
-				char *u = DisplayString(View.Data, ArrayLength);
+				char *u = DisplayString((char*)View.Aligned(), ArrayLength);
 
 				View.Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
 				if (u && d->Value.Str())
@@ -1386,7 +1369,7 @@ public:
 				char16 *u = 0;
 				if (w)
 				{
-					char16 *Src = (char16*)View.Data;
+					char16 *Src = (char16*)View.Aligned();
 					for (int i=0; i<ArrayLength; i++)
 					{
 						w[i] = IfSwap(Src[i], Little);
@@ -1412,9 +1395,7 @@ public:
 			}
 		}
 
-		View.Data += ArrayLength * d->Type->Base->Bytes;
-		View.Len -= ArrayLength * d->Type->Base->Bytes;
-		
+		View.SeekBytes(ArrayLength * d->Type->Base->Bytes);		
 		return true;
 	}
 	
@@ -1438,11 +1419,11 @@ public:
 			int zstringLen = 0;
 			if (d->Type->Base->Bytes == 1)
 			{
-				while (*(View.Data + zstringLen))
+				while (*(View.Aligned() + zstringLen))
 				{
 					zstringLen++;
 				}
-				char *u = (char*) LgiNewConvertCp("utf-8", View.Data, "iso-8859-1", zstringLen);
+				char *u = (char*) LgiNewConvertCp("utf-8", View.Aligned(), "iso-8859-1", zstringLen);
 				if (!d->Hidden)
 				{
 					View.Out.Print("'%s'\n", u);
@@ -1460,7 +1441,7 @@ public:
 			}
 			else if (d->Type->Base->Bytes == 2)
 			{
-				while ((char16)*(View.Data + zstringLen * d->Type->Base->Bytes))
+				while ((char16)*(View.Aligned() + zstringLen * d->Type->Base->Bytes))
 				{
 					zstringLen++;
 				}
@@ -1468,7 +1449,7 @@ public:
 				char *u = 0;
 				if (w)
 				{
-					char16 *Src = (char16*)View.Data;
+					char16 *Src = (char16*)View.Aligned();
 					for (int i=0; i<zstringLen; i++)
 					{
 						w[i] = IfSwap(Src[i], Little);
@@ -1497,15 +1478,14 @@ public:
 			else if (d->Type->Base->Bytes == 8)
 			{
 				// Just skip passed the string
-				while ((uint64)*(View.Data + zstringLen * d->Type->Base->Bytes))
+				while ((uint64)*(View.Aligned() + zstringLen * d->Type->Base->Bytes))
 				{
 					zstringLen++;
 				}
 			}
 			
 			zstringLen += 1; // Take null terminator into account
-			View.Data += zstringLen * d->Type->Base->Bytes;
-			View.Len -= zstringLen * d->Type->Base->Bytes;
+			View.SeekBytes(zstringLen * d->Type->Base->Bytes);
 		}
 		
 		return true;
@@ -1568,7 +1548,7 @@ public:
 
 			if (d->Type->Base)
 			{
-				Scope.Addr[Scope.Pos] = View.Data;
+				Scope.Addr[Scope.Pos] = View;
 
 				Basic *b = d->Type->Base;
 				switch (b->Type)
@@ -1613,7 +1593,7 @@ public:
 				StructDef *s = d->Type->Cmplex;
 				StructDef *sub = s->MatchChild(View, Little);
 
-				int Offset = View.Data - View.Base;
+				int Offset = View.Offset();
 				if (sub)
 					View.Out.Print("%s%s.%s (@ %i/0x%x) =\n", Tabs, sub->Name, d->Name, Offset, Offset);
 				else
@@ -1632,7 +1612,7 @@ public:
 
 					if (ArrayLength != 1)
 					{
-						Offset = View.Data - View.Base;
+						Offset = View.Offset();
 						View.Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name, Offset, Offset);
 					}
 
@@ -1674,12 +1654,13 @@ public:
 				for (Sub.Pos=0; Sub.Pos<c->Members.Length(); Sub.Pos++)
 				{
 					Member *Mem = c->Members[Sub.Pos];
-					if (!DoMember(Mem, View, Sub, Depth))
-						return false;
-					
+
 					// This saves the member address in case we need to resolve
 					// one of the members to an array index.
-					c->Addr[Sub.Pos] = Scope.Addr[Sub.Pos];
+					c->Addr[Sub.Pos] = View;
+
+					if (!DoMember(Mem, View, Sub, Depth))
+						return false;
 				}
 				Stack.Length(InitLen);
 			}						
@@ -1723,8 +1704,8 @@ public:
 		if (Main)
 		{
 			ViewContext Ctx(Out);
-			Ctx.Base = Data;
-			Ctx.Data = Data;
+			Ctx.Base = (uint8*)Data;
+			Ctx.Ptr = (uint8*)Data;
 			Ctx.Len = Len;
 			Ctx.Bit = 0;
 			DoStruct(Main, Ctx, Little);
