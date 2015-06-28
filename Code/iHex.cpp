@@ -1073,7 +1073,7 @@ void GHexView::SetCursor(int64 cursor, int nibble, bool Selecting)
 			InvalidateCursor();
 	}
 
-	SendNotify(GTVN_CURSOR_CHANGED);
+	SendNotify(GNotifyCursorChanged);
 }
 
 int64 GHexView::Search(SearchDlg *For, uchar *Bytes, int Len)
@@ -2752,7 +2752,7 @@ int AppWnd::OnNotify(GViewI *Ctrl, int Flags)
 	{
 		case IDC_HEX_VIEW:
 		{
-			if (Flags == GTVN_CURSOR_CHANGED)
+			if (Flags == GNotifyCursorChanged)
 			{
 				char *Data;
 				int Len;
@@ -2972,7 +2972,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 				ToggleTextView();
 			}
 			ToggleVisualise();
-			OnNotify(Doc, GTVN_CURSOR_CHANGED);
+			OnNotify(Doc, GNotifyCursorChanged);
 			break;
 		}
 		case IDM_TEXTVIEW:
@@ -2983,7 +2983,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 				ToggleVisualise();
 			}
 			ToggleTextView();
-			OnNotify(Doc, GTVN_CURSOR_CHANGED);
+			OnNotify(Doc, GNotifyCursorChanged);
 			break;
 		}
 		case IDM_SAVE:
