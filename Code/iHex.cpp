@@ -758,30 +758,6 @@ GHexView::~GHexView()
 	DeleteArray(Buf);
 }
 
-/*
-GRect GHexView::GetPositionAt(int64 Offset)
-{
-	GRect c = GetClient();
-	GRect Status;
-	int64 Start = (VScroll ? (uint64)VScroll->Value() : 0) * 16;
-	int Window = (c.Y() / CharSize.y) * 16;
-
-	if (Offset >= Start && Offset < Start + Window)
-	{
-		// On screen
-		Status.ZOff(c.X(), CharSize.y);
-		Status.Offset(10 * CharSize.x, ((Offset - Start) / 16) * CharSize.y);
-	}
-	else
-	{
-		// Off screen..
-		Status.ZOff(-1, -1); // NULL region
-	}
-
-	return Status;	
-}
-*/
-
 int GHexView::OnNotify(GViewI *c, int f)
 {
 	switch (c->GetId())
@@ -1890,7 +1866,7 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 
 				// Go through the colour buffers, painting in runs of similar colour
 				GRect r;
-				int Cx = Tr.x1;
+				int CxF = Tr.x1 << GDisplayString::FShift;
 				int Len = p - s;
 				for (i=0; i<Len; )
 				{
@@ -1905,13 +1881,27 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 
 					int Run = e - i;
 					GDisplayString Str(Font, s + i, Run);
+					
+					r.x1 = CxF;
+					r.y1 = CurY << GDisplayString::FShift;
+					if (e >= Len)
+						r.x2 = (l.Pos[Side].x2 + 1) << GDisplayString::FShift;
+					else
+						r.x2 = CxF + Str.FX();
+					r.y2 = (CurY + Str.Y()) << GDisplayString::FShift;
+
+					/*
 					if (e >= Len)
 						r.Set(Cx, CurY, l.Pos[Side].x2, CurY+Str.Y()-1);
 					else
 						r.Set(Cx, CurY, Cx+Str.X()-1, CurY+Str.Y()-1);
+					*/
+					
 					Font->Colour(Fore[i], Back[i]);
-					Str.Draw(pDC, Cx, CurY, &r);
-					Cx += Str.X();
+					
+					Str.FDraw(pDC, CxF, CurY<<GDisplayString::FShift, &r);
+					
+					CxF += Str.FX();
 					i = e;
 				}
 				
