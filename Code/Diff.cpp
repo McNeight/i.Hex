@@ -1,436 +1,654 @@
+/*-
+ * Copyright 2003-2005 Colin Percival
+ * All rights reserved
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted providing that the following conditions 
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#if 0
+__FBSDID("$FreeBSD: src/usr.bin/bsdiff/bsdiff/bsdiff.c,v 1.1 2005/08/06 01:59:05 cperciva Exp $");
+#endif
+
+#include <sys/types.h>
+
+#include <C:\Data\thunderbird 3.1.7\mozilla\modules\libbz2\src\bzlib.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#define MIN(x,y) (((x) < (y)) ? (x) : (y))
+
+static void split(off_t *I,off_t *V,off_t start,off_t len,off_t h)
+{
+	off_t i,j,k,x,tmp,jj,kk;
+
+	if (len<16)
+	{
+		for(k=start;k<start+len;k+=j)
+		{
+			j=1;x=V[I[k]+h];
+			for(i=1;k+i<start+len;i++)
+			{
+				if(V[I[k+i]+h]<x)
+				{
+					x=V[I[k+i]+h];
+					j=0;
+				}
+				if(V[I[k+i]+h]==x)
+				{
+					tmp=I[k+j];I[k+j]=I[k+i];I[k+i]=tmp;
+					j++;
+				}
+			}
+			
+			for(i=0;i<j;i++)
+				V[I[k+i]]=k+j-1;
+			if(j==1)
+				I[k]=-1;
+		}
+		return;
+	}
+
+	x=V[I[start+len/2]+h];
+	jj=0;
+	kk=0;
+	for(i=start;i<start+len;i++)
+	{
+		if(V[I[i]+h]<x)
+			jj++;
+		if(V[I[i]+h]==x)
+			kk++;
+	}
+	jj+=start;
+	kk+=jj;
+
+	i=start;
+	j=0;
+	k=0;
+	while (i<jj)
+	{
+		if(V[I[i]+h]<x)
+		{
+			i++;
+		}
+		else if(V[I[i]+h]==x)
+		{
+			tmp=I[i];I[i]=I[jj+j];I[jj+j]=tmp;
+			j++;
+		}
+		else
+		{
+			tmp=I[i];I[i]=I[kk+k];I[kk+k]=tmp;
+			k++;
+		}
+	}
+
+	while(jj+j<kk)
+	{
+		if(V[I[jj+j]+h]==x)
+		{
+			j++;
+		}
+		else
+		{
+			tmp=I[jj+j];I[jj+j]=I[kk+k];I[kk+k]=tmp;
+			k++;
+		}
+	}
+
+	if (jj>start)
+		split(I,V,start,jj-start,h);
+
+	for(i=0;i<kk-jj;i++)
+		V[I[jj+i]]=kk-1;
+	if (jj==kk-1)
+		I[jj]=-1;
+
+	if (start+len>kk)
+		split(I,V,kk,start+len-kk,h);
+}
+
+static void qsufsort(off_t *I,off_t *V,u_char *old,off_t oldsize)
+{
+	off_t buckets[256];
+	off_t i,h,len;
+
+	for (i=0;i<256;i++)
+		buckets[i]=0;
+	for (i=0;i<oldsize;i++)
+		buckets[old[i]]++;
+	for (i=1;i<256;i++)
+		buckets[i]+=buckets[i-1];
+	for (i=255;i>0;i--)
+		buckets[i]=buckets[i-1];
+	buckets[0]=0;
+
+	for(i=0;i<oldsize;i++)
+		I[++buckets[old[i]]] = i;
+	I[0]=oldsize;
+	for(i=0;i<oldsize;i++)
+		V[i]=buckets[old[i]];
+	V[oldsize]=0;
+	for(i=1;i<256;i++)
+		if(buckets[i]==buckets[i-1]+1)
+			I[buckets[i]]=-1;
+	I[0]=-1;
+
+	for(h=1;I[0]!=-(oldsize+1);h+=h) {
+		len=0;
+		for(i=0;i<oldsize+1;) {
+			if(I[i]<0) {
+				len-=I[i];
+				i-=I[i];
+			} else {
+				if(len) I[i-len]=-len;
+				len=V[I[i]]+1-i;
+				split(I,V,i,len,h);
+				i+=len;
+				len=0;
+			};
+		};
+		if(len) I[i-len]=-len;
+	};
+
+	for(i=0;i<oldsize+1;i++) I[V[i]]=i;
+}
+
+static off_t matchlen(u_char *old,off_t oldsize,u_char *New,off_t newsize)
+{
+	off_t i;
+
+	for (i=0; (i < oldsize) && (i < newsize); i++)
+		if (old[i] != New[i])
+			break;
+
+	return i;
+}
+
+off_t search(off_t *I,
+			u_char *old,
+			off_t oldsize,
+			u_char *New,
+			off_t newsize,
+			off_t st,
+			off_t en,
+			off_t *pos)
+{
+	off_t x, y;
+
+	if (en - st < 2)
+	{
+		x = matchlen(old+I[st], oldsize-I[st], New, newsize);
+		y = matchlen(old+I[en], oldsize-I[en], New, newsize);
+
+		if (x > y)
+		{
+			*pos=I[st];
+			return x;
+		}
+		else
+		{
+			*pos=I[en];
+			return y;
+		}
+	};
+
+	x = st + (en - st) / 2;
+	if (memcmp(old + I[x], New, MIN(oldsize - I[x], newsize)) < 0)
+		return search(I, old, oldsize, New, newsize, x, en, pos);
+	else
+		return search(I, old, oldsize, New, newsize, st, x, pos);
+}
+
+void errx(int i, const char *s, ...)
+{
+}
+
+void err(int i, const char *s, ...)
+{
+}
+
+static void offtout(off_t x,u_char *buf)
+{
+	off_t y;
+
+	if(x<0) y=-x; else y=x;
+
+		buf[0]=y%256;y-=buf[0];
+	y=y/256;buf[1]=y%256;y-=buf[1];
+	y=y/256;buf[2]=y%256;y-=buf[2];
+	y=y/256;buf[3]=y%256;y-=buf[3];
+	y=y/256;buf[4]=y%256;y-=buf[4];
+	y=y/256;buf[5]=y%256;y-=buf[5];
+	y=y/256;buf[6]=y%256;y-=buf[6];
+	y=y/256;buf[7]=y%256;
+
+	if(x<0) buf[7]|=0x80;
+}
+
+typedef unsigned char uint8;
 #include "Diff.h"
 
-/// <summary>
-/// Find the difference in 2 texts, comparing by textlines.
-/// </summary>
-/// <param name="TextA">A-version of the text (usualy the old one)</param>
-/// <param name="TextB">B-version of the text (usualy the new one)</param>
-/// <returns>Returns a array of Items that describe the differences.</returns>
-GArray<Diff::Item> Diff::DiffText(char *TextA, char *TextB)
+bool binary_diff(diff_info &di, uint8 *old, int oldsize, uint8 *New, int newsize)
 {
-	return DiffText(TextA, TextB, false, false, false);
-}
+	if (!old || oldsize < 1 || !New || newsize < 0)
+		return false;
 
+	off_t *I = NULL, *V = NULL;
+	u_char *db = NULL, *eb = NULL;
+	bool Status = false;
 
-/// <summary>
-/// Find the difference in 2 text documents, comparing by textlines.
-/// The algorithm itself is comparing 2 arrays of numbers so when comparing 2 text documents
-/// each line is converted into a (hash) number. This hash-value is computed by storing all
-/// textlines into a common hashtable so i can find dublicates in there, and generating a 
-/// new number each time a new textline is inserted.
-/// </summary>
-/// <param name="TextA">A-version of the text (usualy the old one)</param>
-/// <param name="TextB">B-version of the text (usualy the new one)</param>
-/// <param name="trimSpace">When set to true, all leading and trailing whitespace characters are stripped out before the comparation is done.</param>
-/// <param name="ignoreSpace">When set to true, all whitespace characters are converted to a single space character before the comparation is done.</param>
-/// <param name="ignoreCase">When set to true, all characters are converted to their lowercase equivivalence before the comparation is done.</param>
-/// <returns>Returns a array of Items that describe the differences.</returns>
-GArray<Diff::Item> Diff::DiffText(char *TextA, char *TextB, bool trimSpace, bool ignoreSpace, bool ignoreCase)
-{
-	// prepare the input-text and convert to comparable numbers.
-	Hashtable h((strlen(TextA) + strlen(TextB)) * 3, false, NULL, -1);
+	I = (off_t*) malloc((oldsize+1) * sizeof(off_t));
+	V = (off_t*) malloc((oldsize+1) * sizeof(off_t));
+	db = (u_char*) malloc(newsize+1);
+	eb = (u_char*) malloc(newsize+1);
 
-	// The A-Version of the data (original data) to be compared.
-	GArray<int> dc = DiffCodes(TextA, h, trimSpace, ignoreSpace, ignoreCase);
-	DiffData<int> DataA(dc);
+	if (!I || !V || !db || !eb)
+		goto diff_error;
 
-	// The B-Version of the data (modified data) to be compared.
-	dc = DiffCodes(TextB, h, trimSpace, ignoreSpace, ignoreCase);
-	DiffData<int> DataB(dc);
-
-	h.Empty(); // free up hashtable memory (maybe)
-
-	int MAX = DataA.Length() + DataB.Length() + 1;
-	/// vector for the (0,0) to (x,y) search
-	GArray<int> DownVector(2 * MAX + 2);
-	/// vector for the (u,v) to (N,M) search
-	GArray<int> UpVector(2 * MAX + 2);
-
-	LCS(DataA, 0, DataA.Length(), DataB, 0, DataB.Length(), DownVector, UpVector);
-
-	Optimize(DataA);
-	Optimize(DataB);
+	qsufsort(I, V, old, oldsize);
 	
-	return CreateDiffs(DataA, DataB);
-}
+	off_t dblen = 0, eblen = 0;
+	off_t scan = 0, pos = 0, len = 0;
+	off_t lastscan = 0, lastpos = 0, lastoffset = 0;
+	off_t oldscore, scsc;
+	off_t s,Sf,lenf,Sb,lenb;
+	off_t i;
+	off_t overlap,Ss,lens;
 
-template<typename T>
-void Diff::Optimize(DiffData<T> &Data)
-{
-	int StartPos, EndPos;
-
-	StartPos = 0;
-	while (StartPos < Data.Length())
+	while (scan < oldsize)
 	{
-		while ((StartPos < Data.Length()) && (Data.modified[StartPos] == false))
-			StartPos++;
-		EndPos = StartPos;
-		while ((EndPos < Data.Length()) && (Data.modified[EndPos] == true))
-			EndPos++;
+		oldscore = 0;
 
-		if ((EndPos < Data.Length()) && (Data.data[StartPos] == Data.data[EndPos])) {
-			Data.modified[StartPos] = false;
-			Data.modified[EndPos] = true;
-		} else {
-			StartPos = EndPos;
-		} // if
-	} // while
-} // Optimize
+		for (scsc = scan += len; scan < newsize; scan++)
+		{
+			len = search(I,
+						old,
+						oldsize,
+						New+scan,
+						newsize-scan,
+						0,
+						oldsize,
+						&pos);
 
+			for (;scsc<scan+len;scsc++)
+				if((scsc+lastoffset<oldsize) &&
+					(old[scsc+lastoffset] == New[scsc]))
+						oldscore++;
 
-template<typename T>
-GArray<Diff::Item> Diff::DiffInt(GArray<T> &ArrayA, GArray<T> &ArrayB)
-{		
-	DiffData<T> DataA(ArrayA);
-	DiffData<T> DataB(ArrayB);
+			if (((len==oldscore) && (len!=0)) || (len>oldscore+8))
+				break;
 
-	int MAX = DataA.Length() + DataB.Length() + 1;
-	GArray<int> DownVector(2 * MAX + 2);
-	GArray<int> UpVector(2 * MAX + 2);
+			if
+			(
+				(scan+lastoffset<oldsize)
+				&&
+				(old[scan+lastoffset] == New[scan])
+			)
+				oldscore--;
+		};
 
-	LCS(DataA, 0, DataA.Length(), DataB, 0, DataB.Length(), DownVector, UpVector);
+		if ((len!=oldscore) || (scan==newsize))
+		{
+			s=0;Sf=0;lenf=0;
+			for (i=0;(lastscan+i<scan)&&(lastpos+i<oldsize);) {
+				if(old[lastpos+i]==New[lastscan+i]) s++;
+				i++;
+				if(s*2-i>Sf*2-lenf) { Sf=s; lenf=i; };
+			};
+
+			lenb=0;
+			if(scan<newsize) {
+				s=0;Sb=0;
+				for(i=1;(scan>=lastscan+i)&&(pos>=i);i++) {
+					if(old[pos-i]==New[scan-i]) s++;
+					if(s*2-i>Sb*2-lenb) { Sb=s; lenb=i; };
+				};
+			};
+
+			if (lastscan + lenf > scan - lenb)
+			{
+				overlap=(lastscan+lenf)-(scan-lenb);
+				s=0;Ss=0;lens=0;
+				for(i=0;i<overlap;i++) {
+					if(New[lastscan+lenf-overlap+i]==
+					   old[lastpos+lenf-overlap+i]) s++;
+					if(New[scan-lenb+i]==
+					   old[pos-lenb+i]) s--;
+					if(s>Ss) { Ss=s; lens=i+1; };
+				};
+
+				lenf+=lens-overlap;
+				lenb-=lens;
+			};
+
+			for(i=0;i<lenf;i++)
+				db[dblen+i]=New[lastscan+i]-old[lastpos+i];
+			for(i=0;i<(scan-lenb)-(lastscan+lenf);i++)
+				eb[eblen+i]=New[lastscan+lenf+i];
+
+			dblen+=lenf;
+			eblen+=(scan-lenb)-(lastscan+lenf);
+
+			ctrl_info &ci = di.ctrl.New();
+
+			ci.a[0] = lenf;
+			ci.a[1] = (scan-lenb)-(lastscan+lenf);
+			ci.a[2] = (pos-lenb)-(lastpos+lenf);
+
+			lastscan = scan - lenb;
+			lastpos = pos - lenb;
+			lastoffset = pos - scan;
+		};
+	};
+
+	di.db.Add(db, dblen);
+	di.eb.Add(eb, eblen);
+
+	Status = true;
+
+diff_error:
+	free(I);
+	free(V);
+	free(db);
+	free(eb);
 	
-	return CreateDiffs(DataA, DataB);
+	return Status;
 }
 
-void Diff::StripRet(char *a)
+#include "io.h"
+
+int ftello(FILE *f)
 {
-	char *o = a;
-	while (*a)
-	{
-		if (*a != '\r')
-			*o++ = *a;
-		a++;
-	}
+	return fseek(f, 0, SEEK_CUR);
 }
 
-void Diff::Trim(char *str)
+void WINAPI BZ2_bzWriteClose( 
+      int*          bzerror, 
+      BZFILE*       b, 
+      int           abandon, 
+      unsigned int* nbytes_in, 
+      unsigned int* nbytes_out 
+   )
 {
-	char *s = str;
-	char *o = str;
-	while (*s && strchr(WhiteSpace, *s))
-		s++;
-	while (*s)
-		*o++ = *s++;
-	while (o > str && strchr(WhiteSpace, o[-1]))
-		*(--o) = 0;
 }
 
-/// <summary>
-/// This function converts all textlines of the text into unique numbers for every unique textline
-/// so further work can work only with simple numbers.
-/// </summary>
-/// <param name="aText">the input text</param>
-/// <param name="h">This extern initialized hashtable is used for storing all ever used textlines.</param>
-/// <param name="trimSpace">ignore leading and trailing space characters</param>
-/// <returns>a array of integers.</returns>
-GArray<int> Diff::DiffCodes(char *aText, Hashtable &h, bool trimSpace, bool ignoreSpace, bool ignoreCase)
+void WINAPI BZ2_bzWrite( 
+      int*    bzerror, 
+      BZFILE* b, 
+      void*   buf, 
+      int     len 
+   )
 {
-	// get all codes of the text
-	GArray<int> Codes;
-	int lastUsedCode = h.Length();
-	char *s;
-
-	GToken Lines(aText, "\r\n");
-	Codes.Length(Lines.Length());
-
-	for (int i = 0; i < Lines.Length(); ++i)
-	{
-		s = Lines[i];
-		if (trimSpace)
-			Trim(s);
-
-		/*
-		if (ignoreSpace)
-			s = Regex.Replace(s, "\\s+", " ");
-		*/
-
-		if (ignoreCase)
-			strlwr(s);
-
-		int aCode = h.Find(s);
-		if (aCode < 0)
-		{
-			lastUsedCode++;
-			h.Add(s, lastUsedCode);
-			Codes[i] = lastUsedCode;
-		}
-		else
-		{
-			Codes[i] = aCode;
-		}
-	}
-	
-	return (Codes);
 }
 
-/// <summary>
-/// This is the algorithm to find the Shortest Middle Snake (SMS).
-/// </summary>
-/// <param name="DataA">sequence A</param>
-/// <param name="LowerA">lower bound of the actual range in DataA</param>
-/// <param name="UpperA">upper bound of the actual range in DataA (exclusive)</param>
-/// <param name="DataB">sequence B</param>
-/// <param name="LowerB">lower bound of the actual range in DataB</param>
-/// <param name="UpperB">upper bound of the actual range in DataB (exclusive)</param>
-/// <param name="DownVector">a vector for the (0,0) to (x,y) search. Passed as a parameter for speed reasons.</param>
-/// <param name="UpVector">a vector for the (u,v) to (N,M) search. Passed as a parameter for speed reasons.</param>
-/// <returns>a MiddleSnakeData record containing x,y and u,v</returns>
-template<typename T>
-Diff::SMSRD Diff::SMS(	DiffData<T> &DataA, int LowerA, int UpperA,
-						DiffData<T> &DataB, int LowerB, int UpperB,
-						int *DownVector, int *UpVector)
+BZFILE* WINAPI BZ2_bzWriteOpen( int*  bzerror,      
+                      FILE* f, 
+                      int   blockSize100k, 
+                      int   verbosity,
+                      int   workFactor )
 {
-	SMSRD ret = {0, 0};
-	int MAX = DataA.Length() + DataB.Length() + 1;
-	T *DataAPtr = &DataA.data[0];
-	T *DataBPtr = &DataB.data[0];
-
-	int DownK = LowerA - LowerB; // the k-line to start the forward search
-	int UpK = UpperA - UpperB; // the k-line to start the reverse search
-
-	int Delta = (UpperA - LowerA) - (UpperB - LowerB);
-	bool oddDelta = (Delta & 1) != 0;
-
-	// The vectors in the publication accepts negative indexes. the vectors implemented here are 0-based
-	// and are access using a specific offset: UpOffset UpVector and DownOffset for DownVektor
-	int DownOffset = MAX - DownK;
-	int UpOffset = MAX - UpK;
-
-	int MaxD = ((UpperA - LowerA + UpperB - LowerB) / 2) + 1;
-
-	// Debug.Write(2, "SMS", String.Format("Search the box: A[{0}-{1}] to B[{2}-{3}]", LowerA, UpperA, LowerB, UpperB));
-
-	// init vectors
-	DownVector[DownOffset + DownK + 1] = LowerA;
-	UpVector[UpOffset + UpK - 1] = UpperA;
-
-	for (int D = 0; D <= MaxD; D++)
-	{
-		// Extend the forward path.
-		for (int k = DownK - D; k <= DownK + D; k += 2)
-		{
-			// Debug.Write(0, "SMS", "extend forward path " + k.ToString());
-
-			// find the only or better starting point
-			int x, y;
-			if (k == DownK - D)
-			{
-				x = DownVector[DownOffset + k + 1]; // down
-			}
-			else
-			{
-				x = DownVector[DownOffset + k - 1] + 1; // a step to the right
-				if ((k < DownK + D) && (DownVector[DownOffset + k + 1] >= x))
-					x = DownVector[DownOffset + k + 1]; // down
-			}
-			y = x - k;
-
-			// find the end of the furthest reaching forward D-path in diagonal k.
-			while ((x < UpperA) && (y < UpperB) && (DataAPtr[x] == DataBPtr[y]))
-			{
-				x++; y++;
-			}
-			DownVector[DownOffset + k] = x;
-
-			// overlap ?
-			if (oddDelta && (UpK - D < k) && (k < UpK + D))
-			{
-				if (UpVector[UpOffset + k] <= DownVector[DownOffset + k])
-				{
-					ret.x = DownVector[DownOffset + k];
-					ret.y = DownVector[DownOffset + k] - k;
-					return (ret);
-				} // if
-			} // if
-
-		} // for k
-
-		// Extend the reverse path.
-		for (int k = UpK - D; k <= UpK + D; k += 2)
-		{
-			// Debug.Write(0, "SMS", "extend reverse path " + k.ToString());
-
-			// find the only or better starting point
-			int x, y;
-			if (k == UpK + D)
-			{
-				x = UpVector[UpOffset + k - 1]; // up
-			}
-			else
-			{
-				x = UpVector[UpOffset + k + 1] - 1; // left
-				if ((k > UpK - D) && (UpVector[UpOffset + k - 1] < x))
-					x = UpVector[UpOffset + k - 1]; // up
-			} // if
-			y = x - k;
-
-			while ((x > LowerA) && (y > LowerB) && (DataAPtr[x - 1] == DataBPtr[y - 1]))
-			{
-				x--; y--; // diagonal
-			}
-			UpVector[UpOffset + k] = x;
-
-			// overlap ?
-			if (!oddDelta && (DownK - D <= k) && (k <= DownK + D))
-			{
-				if (UpVector[UpOffset + k] <= DownVector[DownOffset + k])
-				{
-					ret.x = DownVector[DownOffset + k];
-					ret.y = DownVector[DownOffset + k] - k;
-					return (ret);
-				} // if
-			} // if
-
-		} // for k
-
-	} // for D
-
-	LgiAssert(!"the algorithm should never come here.");
-	return ret;
+	return NULL;
 }
 
-
-/// <summary>
-/// This is the divide-and-conquer implementation of the longes common-subsequence (LCS) 
-/// algorithm.
-/// The published algorithm passes recursively parts of the A and B sequences.
-/// To avoid copying these arrays the lower and upper bounds are passed while the sequences stay constant.
-/// </summary>
-/// <param name="DataA">sequence A</param>
-/// <param name="LowerA">lower bound of the actual range in DataA</param>
-/// <param name="UpperA">upper bound of the actual range in DataA (exclusive)</param>
-/// <param name="DataB">sequence B</param>
-/// <param name="LowerB">lower bound of the actual range in DataB</param>
-/// <param name="UpperB">upper bound of the actual range in DataB (exclusive)</param>
-/// <param name="DownVector">a vector for the (0,0) to (x,y) search. Passed as a parameter for speed reasons.</param>
-/// <param name="UpVector">a vector for the (u,v) to (N,M) search. Passed as a parameter for speed reasons.</param>
-template<typename T>
-void Diff::LCS(	DiffData<T> &DataA, int LowerA, int UpperA,
-				DiffData<T> &DataB, int LowerB, int UpperB,
-				GArray<int> &DownVector, GArray<int> &UpVector)
+int main(int argc, char *argv[])
 {
-	// Debug.Write(2, "LCS", String.Format("Analyse the box: A[{0}-{1}] to B[{2}-{3}]", LowerA, UpperA, LowerB, UpperB));
+	int fd;
+	u_char *old,*New;
+	off_t oldsize,newsize;
+	off_t *I,*V;
+	off_t scan,pos,len;
+	off_t lastscan,lastpos,lastoffset;
+	off_t oldscore,scsc;
+	off_t s,Sf,lenf,Sb,lenb;
+	off_t overlap,Ss,lens;
+	off_t i;
+	off_t dblen,eblen;
+	u_char *db,*eb;
+	u_char buf[8];
+	u_char header[32];
+	FILE * pf;
+	BZFILE * pfbz2;
+	int bz2err;
+	char *oldfile = argv[1];
+	char *newfile = argv[2];
+	char *patchfile = argv[3];
 
-	// Fast walkthrough equal lines at the start
-	while (LowerA < UpperA && LowerB < UpperB && DataA.data[LowerA] == DataB.data[LowerB]) {
-		LowerA++; LowerB++;
-	}
+	if (argc!=4)
+		errx(1,"usage: %s oldfile newfile patchfile\n", argv[0]);
 
-	// Fast walkthrough equal lines at the end
-	while (LowerA < UpperA && LowerB < UpperB && DataA.data[UpperA - 1] == DataB.data[UpperB - 1]) {
-		--UpperA; --UpperB;
-	}
+	// Allocate oldsize+1 bytes instead of oldsize bytes to ensure
+	//	that we never try to malloc(0) and get a NULL pointer
+	if
+	(
+		((fd = open(oldfile,O_RDONLY,0))<0)
+		||
+		((oldsize=lseek(fd,0,SEEK_END))==-1)
+		||
+		((old = (u_char *)malloc(oldsize+1))==NULL)
+		||
+		(lseek(fd,0,SEEK_SET)!=0)
+		||
+		(read(fd,old,oldsize)!=oldsize)
+		||
+		(close(fd)==-1)
+	)
+		err(1,"%s",oldfile);
 
-	if (LowerA == UpperA) {
-		// mark as inserted lines.
-		while (LowerB < UpperB)
-			DataB.modified[LowerB++] = true;
+	if
+	(
+		((I = (off_t*)malloc((oldsize+1)*sizeof(off_t)))==NULL)
+		||
+		((V = (off_t*)malloc((oldsize+1)*sizeof(off_t)))==NULL)
+	)
+		err(1,NULL);
 
-	}
-	else if (LowerB == UpperB)
-	{
-		// mark as deleted lines.
-		while (LowerA < UpperA)
-			DataA.modified[LowerA++] = true;
+	qsufsort(I, V, old, oldsize);
 
-	}
-	else
-	{
-		// Find the middle snakea and length of an optimal path for A and B
-		SMSRD smsrd = SMS(DataA, LowerA, UpperA, DataB, LowerB, UpperB, &DownVector[0], &UpVector[0]);
-		// Debug.Write(2, "MiddleSnakeData", String.Format("{0},{1}", smsrd.x, smsrd.y));
+	free(V);
 
-		// The path is from LowerX to (x,y) and (x,y) to UpperX
-		LCS(DataA, LowerA, smsrd.x, DataB, LowerB, smsrd.y, DownVector, UpVector);
-		LCS(DataA, smsrd.x, UpperA, DataB, smsrd.y, UpperB, DownVector, UpVector);  // 2002.09.20: no need for 2 points 
-	}
-} // LCS()
+	// Allocate newsize+1 bytes instead of newsize bytes to ensure
+	//	that we never try to malloc(0) and get a NULL pointer
+	if
+	(
+		((fd=open(newfile,O_RDONLY,0))<0)
+		||
+		((newsize=lseek(fd,0,SEEK_END))==-1)
+		||
+		((New = (u_char*)malloc(newsize+1))==NULL)
+		||
+		(lseek(fd,0,SEEK_SET)!=0)
+		||
+		(read(fd,New,newsize)!=newsize)
+		||
+		(close(fd)==-1)
+	)
+		err(1,"%s",newfile);
 
+	if 
+	(
+		((db=(u_char*)malloc(newsize+1))==NULL)
+		||
+		((eb=(u_char*)malloc(newsize+1))==NULL)
+	)
+		err(1,NULL);
+	dblen=0;
+	eblen=0;
 
-/// <summary>Scan the tables of which lines are inserted and deleted,
-/// producing an edit script in forward order.  
-/// </summary>
-/// dynamic array
-template<typename T>
-GArray<Diff::Item> Diff::CreateDiffs(DiffData<T> &DataA, DiffData<T> &DataB)
-{
-	// ArrayList a = new ArrayList();
-	Item aItem;
-	GArray<Item> a;
+	// Create the patch file
+	if ((pf = fopen(patchfile, "w")) == NULL)
+		err(1, "%s", patchfile);
 
-	int StartA, StartB;
-	int LineA, LineB;
+	// Header is
+	//	0	8	 "BSDIFF40"
+	//	8	8	length of bzip2ed ctrl block
+	//	16	8	length of bzip2ed diff block
+	//	24	8	length of New file
+	// File is
+	//	0	32	Header
+	//	32	??	Bzip2ed ctrl block
+	//	??	??	Bzip2ed diff block
+	//	??	??	Bzip2ed extra block
+	memcpy(header,"BSDIFF40",8);
+	offtout(0, header + 8);
+	offtout(0, header + 16);
+	offtout(newsize, header + 24);
+	if (fwrite(header, 32, 1, pf) != 1)
+		err(1, "fwrite(%s)", patchfile);
 
-	LineA = 0;
-	LineB = 0;
-	while (LineA < DataA.Length() || LineB < DataB.Length())
-	{
-		if
-		(
-			(LineA < DataA.Length())
-			&&
-			(!DataA.modified[LineA])
-			&&
-			(LineB < DataB.Length())
-			&&
-			(!DataB.modified[LineB])
-		)
-		{
-			// equal lines
-			LineA++;
-			LineB++;
-		}
-		else
-		{
-			// maybe deleted and/or inserted lines
-			StartA = LineA;
-			StartB = LineB;
+	// Compute the differences, writing ctrl as we go
+	if ((pfbz2 = BZ2_bzWriteOpen(&bz2err, pf, 9, 0, 0)) == NULL)
+		errx(1, "BZ2_bzWriteOpen, bz2err = %d", bz2err);
+	scan=0;len=0;
+	lastscan=0;lastpos=0;lastoffset=0;
+	while(scan<newsize) {
+		oldscore=0;
 
-			while (LineA < DataA.Length() && (LineB >= DataB.Length() || DataA.modified[LineA]))
-				// while (LineA < DataA.Length && DataA.modified[LineA])
-				LineA++;
+		for(scsc=scan+=len;scan<newsize;scan++) {
+			len=search(I,old,oldsize,New+scan,newsize-scan,
+					0,oldsize,&pos);
 
-			while (LineB < DataB.Length() && (LineA >= DataA.Length() || DataB.modified[LineB]))
-				// while (LineB < DataB.Length && DataB.modified[LineB])
-				LineB++;
+			for(;scsc<scan+len;scsc++)
+			if((scsc+lastoffset<oldsize) &&
+				(old[scsc+lastoffset] == New[scsc]))
+				oldscore++;
 
-			if ((StartA < LineA) || (StartB < LineB))
-			{
-				// store a new difference-item
-				aItem.StartA = StartA;
-				aItem.StartB = StartB;
-				aItem.deletedA = LineA - StartA;
-				aItem.insertedB = LineB - StartB;
-				a.New() = aItem;
-			} // if
-		} // if
-	} // while
+			if(((len==oldscore) && (len!=0)) || 
+				(len>oldscore+8)) break;
 
-	return a;
-}
+			if((scan+lastoffset<oldsize) &&
+				(old[scan+lastoffset] == New[scan]))
+				oldscore--;
+		};
 
+		if((len!=oldscore) || (scan==newsize)) {
+			s=0;Sf=0;lenf=0;
+			for(i=0;(lastscan+i<scan)&&(lastpos+i<oldsize);) {
+				if(old[lastpos+i]==New[lastscan+i]) s++;
+				i++;
+				if(s*2-i>Sf*2-lenf) { Sf=s; lenf=i; };
+			};
 
-void DiffTest()
-{
-	#if 0
-	Diff d;
+			lenb=0;
+			if(scan<newsize) {
+				s=0;Sb=0;
+				for(i=1;(scan>=lastscan+i)&&(pos>=i);i++) {
+					if(old[pos-i]==New[scan-i]) s++;
+					if(s*2-i>Sb*2-lenb) { Sb=s; lenb=i; };
+				};
+			};
 
-	const char *a = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl";
-	const char *b = "a\nb\nc\nd\ne\nf\ng\nh\nweri\nk\nl";
-	GArray<Diff::Item> result = d.DiffText(a, b, false, false, false);
+			if(lastscan+lenf>scan-lenb) {
+				overlap=(lastscan+lenf)-(scan-lenb);
+				s=0;Ss=0;lens=0;
+				for(i=0;i<overlap;i++) {
+					if(New[lastscan+lenf-overlap+i]==
+					   old[lastpos+lenf-overlap+i]) s++;
+					if(New[scan-lenb+i]==
+					   old[pos-lenb+i]) s--;
+					if(s>Ss) { Ss=s; lens=i+1; };
+				};
 
-	GArray<uint8> c, e;
-	uint8 cdata[10] = { 34, 12, 56, 2, 67, 8, 33, 11, 99, 200 };
-	c.Length(sizeof(cdata));
-	memcpy(&c[0], cdata, c.Length());
-	uint8 edata[11] = { 34, 12, 56, 2, 67, 8, 33, 94, 11, 99, 200 };
-	e.Length(sizeof(edata));
-	memcpy(&e[0], edata, e.Length());
-	
-	
-	result = d.DiffInt(c, e);
+				lenf+=lens-overlap;
+				lenb-=lens;
+			};
 
-	#endif
+			for(i=0;i<lenf;i++)
+				db[dblen+i]=New[lastscan+i]-old[lastpos+i];
+			for(i=0;i<(scan-lenb)-(lastscan+lenf);i++)
+				eb[eblen+i]=New[lastscan+lenf+i];
+
+			dblen+=lenf;
+			eblen+=(scan-lenb)-(lastscan+lenf);
+
+			offtout(lenf,buf);
+			BZ2_bzWrite(&bz2err, pfbz2, buf, 8);
+			if (bz2err != BZ_OK)
+				errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
+
+			offtout((scan-lenb)-(lastscan+lenf),buf);
+			BZ2_bzWrite(&bz2err, pfbz2, buf, 8);
+			if (bz2err != BZ_OK)
+				errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
+
+			offtout((pos-lenb)-(lastpos+lenf),buf);
+			BZ2_bzWrite(&bz2err, pfbz2, buf, 8);
+			if (bz2err != BZ_OK)
+				errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
+
+			lastscan=scan-lenb;
+			lastpos=pos-lenb;
+			lastoffset=pos-scan;
+		};
+	};
+	BZ2_bzWriteClose(&bz2err, pfbz2, 0, NULL, NULL);
+	if (bz2err != BZ_OK)
+		errx(1, "BZ2_bzWriteClose, bz2err = %d", bz2err);
+
+	// Compute size of compressed ctrl data
+	if ((len = ftello(pf)) == -1)
+		err(1, "ftello");
+	offtout(len-32, header + 8);
+
+	// Write compressed diff data
+	if ((pfbz2 = BZ2_bzWriteOpen(&bz2err, pf, 9, 0, 0)) == NULL)
+		errx(1, "BZ2_bzWriteOpen, bz2err = %d", bz2err);
+	BZ2_bzWrite(&bz2err, pfbz2, db, dblen);
+	if (bz2err != BZ_OK)
+		errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
+	BZ2_bzWriteClose(&bz2err, pfbz2, 0, NULL, NULL);
+	if (bz2err != BZ_OK)
+		errx(1, "BZ2_bzWriteClose, bz2err = %d", bz2err);
+
+	// Compute size of compressed diff data
+	if ((newsize = ftello(pf)) == -1)
+		err(1, "ftello");
+	offtout(newsize - len, header + 16);
+
+	// Write compressed extra data
+	if ((pfbz2 = BZ2_bzWriteOpen(&bz2err, pf, 9, 0, 0)) == NULL)
+		errx(1, "BZ2_bzWriteOpen, bz2err = %d", bz2err);
+	BZ2_bzWrite(&bz2err, pfbz2, eb, eblen);
+	if (bz2err != BZ_OK)
+		errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
+	BZ2_bzWriteClose(&bz2err, pfbz2, 0, NULL, NULL);
+	if (bz2err != BZ_OK)
+		errx(1, "BZ2_bzWriteClose, bz2err = %d", bz2err);
+
+	// Seek to the beginning, write the header, and close the file
+	if (fseek(pf, 0, SEEK_SET))
+		err(1, "fseeko");
+	if (fwrite(header, 32, 1, pf) != 1)
+		err(1, "fwrite(%s)", patchfile);
+	if (fclose(pf))
+		err(1, "fclose");
+
+	// Free the memory we used
+	free(db);
+	free(eb);
+	free(I);
+	free(old);
+	free(New);
+
+	return 0;
 }

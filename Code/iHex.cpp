@@ -279,7 +279,7 @@ class GHexView : public GLayout
 	GFile *Compare;
 	GArray<uint8> BufA, BufB;
 	int UsedA, UsedB;
-	GArray<Diff::Item> CmpItems;
+	diff_info DiffInfo;
 	
 	struct Layout
 	{
@@ -1338,9 +1338,44 @@ void GHexView::DoInfo()
 	}
 }
 
+bool FileToArray(GArray<uint8> &a, const char *File)
+{
+	GFile f;
+	if (!f.Open(File, O_READ))
+		return false;
+	
+	if (!a.Length(f.GetSize()))
+		return false;
+	
+	int rd = f.Read(&a[0], a.Length());
+	if (rd != a.Length())
+		return false;
+	
+	return true;	
+}
+
 void GHexView::CompareFile(char *CmpFile)
 {
-	#if 0
+	#if 1
+	
+	if (!FileToArray(BufB, CmpFile))
+		return;
+	
+	if (!GetData(0, Size))
+		return;		
+	
+	if (binary_diff(DiffInfo, Buf, BufUsed, &BufB[0], BufB.Length()))
+	{
+		for (unsigned i=0; i<DiffInfo.ctrl.Length(); i++)
+		{
+			ctrl_info &c = DiffInfo.ctrl[i];
+			LgiTrace("ctrl[%i]=%i,%i,%i\n", i, (int)c.a[0], (int)c.a[1], (int)c.a[2]);
+		}
+		int asd=0;
+	}
+	
+	#else
+	
 	DeleteObj(Compare);
 	CmpItems.Length(0);
 	CmpLayout.Length(0);
@@ -1463,6 +1498,7 @@ void GHexView::CompareFile(char *CmpFile)
 	}
 	
 	Invalidate();
+	
 	#endif
 }
 
@@ -1473,7 +1509,7 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 	if (App->SetDirty(false))
 	{
 		DeleteObj(Compare);
-		CmpItems.Length(0);
+		// CmpItems.Length(0);
 		CmpLayout.Length(0);
 		BufA.Length(0);
 		BufB.Length(0);

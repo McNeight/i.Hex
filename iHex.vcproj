@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\Lgi\trunk\include\common;..\..\Lgi\trunk\include\win32;Code"
-				PreprocessorDefinitions="WIN32;_DEBUG;WINDOWS"
+				PreprocessorDefinitions="WIN32;_DEBUG;WINDOWS;XD3_ENCODER"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
