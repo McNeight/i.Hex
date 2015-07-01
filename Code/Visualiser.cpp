@@ -159,10 +159,6 @@ struct BitReference
 			out = 0;
 			
 			int BitSz = sizeof(T) << 3;
-			if (BitSz == 32)
-			{
-				int asd=0;
-			}
 			
 			while (Bits > 0)
 			{
@@ -747,7 +743,7 @@ bool ConditionDef::GetVariant(const char *Name, GVariant &Value, char *Array)
 				return true;
 			}
 		}
-		else if (c = m->IsCondition())
+		else if ((c = m->IsCondition()))
 		{
 			if (c->GetVariant(Name, Value, Array))
 				return true;
@@ -999,7 +995,7 @@ public:
 						return true;
 					}
 				}
-				else if (Cond = Mem->IsCondition())
+				else if ((Cond = Mem->IsCondition()))
 				{
 					Cond->Little = Little;
 					if (Cond->GetVariant(Name, Value, Array))
@@ -1562,7 +1558,7 @@ public:
 					}
 					else
 					{
-						View.Out.Print("Error: evaluating the expression '%s'\n", d->Type->Length);
+						View.Out.Print("Error: evaluating the expression '%s'\n", DimStr[0]);
 					}
 				}
 				
@@ -2133,7 +2129,7 @@ public:
 		if (State.Base)
 		{
 			#define CheckTok(lit) \
-				if (!(t && XCmp(t, ##lit) == 0)) \
+				if (!(t && XCmp(t, #lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '%s', got '%s'", lit, u); \
