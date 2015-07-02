@@ -8,6 +8,15 @@
 **		fret@memecode.com
 */
 
+/*
+
+Hex view line format:
+
+	Hex: [2ch hex][:][8ch hex][2ch space][3*16=48ch hex bytes][2ch space][16ch ascii]
+	Bin: [11ch decimal       ][2ch space][3*16=48ch hex bytes][2ch space][16ch ascii]
+
+*/
+
 #define _WIN32_WINNT 0x0400
 #include "iHex.h"
 #include "GToken.h"
@@ -260,6 +269,7 @@ class GHexView : public GLayout
 	AppWnd *App;
 	IHexBar *Bar;
 	GFont *Font;
+	GArray<GRect> DbgRect;
 	
 	// General display parameters
 		bool IsHex; // Display offsets in hex
@@ -354,6 +364,8 @@ public:
 	void SetShort(uint16 Byte);
 	void SetInt(uint32 Byte);
 	void InvalidateCursor();
+	void InvalidateLines(GArray<GRect> &a, GArray<GRect> &b);
+	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
 
 	bool Pour(GRegion &r);
 
@@ -973,9 +985,25 @@ int GHexView::GetSelectedNibbles()
 	return Max - Min + 1;
 }
 
+void GHexView::InvalidateLines(GArray<GRect> &NewLoc, GArray<GRect> &OldLoc)
+{
+	if (NewLoc.Length() > 0 && OldLoc.Length() > 0)
+	{
+		// Work out the union of NewLoc and OldLoc
+		int MinY = min(NewLoc[0].y1, OldLoc[0].y1);
+		int MaxY = max(NewLoc[0].y2, OldLoc[0].y2);
+		GRect u(0, MinY, X()-1, MaxY);
+		Invalidate(&u);
+	}
+	else LgiAssert(0);
+}
+
 void GHexView::SetCursor(int64 cursor, int nibble, bool Selecting)
 {
-	InvalidateCursor();
+	GArray<GRect> OldLoc, NewLoc;
+	bool SelectionChanging = false;
+	bool SelectionEnding = false;
+	
 	if (Selecting)
 	{
 		if (Select < 0)
@@ -984,16 +1012,28 @@ void GHexView::SetCursor(int64 cursor, int nibble, bool Selecting)
 			Select = Cursor;
 			SelectNibble = Nibble;
 		}
+
+		SelectionChanging = true;
 	}
 	else
 	{
 		if (Select >= 0)
 		{
 			// Deselecting
+			
+			// Repaint the entire selection area...
+			GetLocationOfByte(NewLoc, Cursor, NULL);
+			GetLocationOfByte(OldLoc, Select, NULL);
+			InvalidateLines(NewLoc, OldLoc);
+			
+			SelectionEnding = true;
 			Select = -1;
-			Invalidate();
 		}
 	}
+
+	if (!SelectionEnding)
+		GetLocationOfByte(OldLoc, Cursor, NULL);
+	// else the selection just ended and the old cursor location just got repainted anyway
 
 	// Limit to doc
 	if (cursor >= Size)
@@ -1043,10 +1083,25 @@ void GHexView::SetCursor(int64 cursor, int nibble, bool Selecting)
 		}
 		
 		Flash = true;
-		if (Select >= 0)
-			Invalidate();
-		else
-			InvalidateCursor();
+
+		GetLocationOfByte(NewLoc, Cursor, NULL);
+		if (!SelectionChanging)
+		{
+			// Just update the cursor's old and new locations
+			NewLoc.Add(OldLoc);
+			// DbgRect = NewLoc;
+			for (unsigned i=0; i<NewLoc.Length(); i++)
+			{
+				Invalidate(&NewLoc[i]);
+			}
+		}
+	}
+	
+	if (SelectionChanging)
+	{
+		if (!NewLoc.Length())
+			GetLocationOfByte(NewLoc, Cursor, NULL);
+		InvalidateLines(NewLoc, OldLoc);
 	}
 
 	SendNotify(GNotifyCursorChanged);
@@ -1694,14 +1749,10 @@ void GHexView::OnPosChange()
 
 void GHexView::InvalidateCursor()
 {
-	#if 1
 	for (int i=0; i<CursorPos.Length(); i++)
 	{
 		Invalidate(&CursorPos[i]);
 	}
-	#else
-	Invalidate();
-	#endif
 }
 
 void GHexView::OnPulse()
@@ -1760,7 +1811,7 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 				#else
 				p += sprintf(p, "%11.11lli  ", LineStart);
 				#endif
-			}			
+			}
 
 			// Print the hex bytes to the line
 			int64 n;
@@ -1911,38 +1962,69 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 			if (CursorOff >= 0)
 			{
 				// Draw cursor
+				#if 1
 				
-				// Work out the x position on screen for the cursor in the hex section
-				int Off = StartOfHex + (CursorOff * 3) + Nibble;
-				int Cx1 = l.Pos[Side].x1 + CharSize.x * Off;
+					GetLocationOfByte(CursorPos, Cursor, Wide);
 
-				// Work out cursor location in the ASCII view
-				Off = StartOfAscii + CursorOff;
-				int Cx2 = l.Pos[Side].x1 + CharSize.x * Off;
+					pDC->Colour(Focus() ? LC_TEXT : LC_LOW, 24);
+					for (unsigned i=0; i<CursorPos.Length(); i++)
+					{
+						GRect r = CursorPos[i];
+						r.y1 = r.y2;
+						if (i == 0)
+						{
+							// Hex side..
+							if (Nibble)
+								r.x1 += CharSize.x;
+							else
+								r.x2 -= CharSize.x;
 
-				pDC->Colour(Focus() ? LC_TEXT : LC_LOW, 24);
-				int Cy = CurY + CharSize.y - 1;
+							if (Pane == HexPane)
+								r.y1--;
+						}
+						else if (Pane == AsciiPane)
+						{
+							r.y1--;
+						}
+						
+						pDC->Rectangle(&r);
+					}
+				
+				#else // old code
 
-				// hex cursor
-				GRect CursorHex(Cx1, Cy - (Pane == HexPane ? 1 : 0), Cx1 + CharSize.x, Cy);
-				pDC->Rectangle(&CursorHex);
+					// Work out the x position on screen for the cursor in the hex section
+					int Off = StartOfHex + (CursorOff * 3) + Nibble;
+					int Cx1 = l.Pos[Side].x1 + CharSize.x * Off;
 
-				// ascii cursor
-				GRect CursorText(Cx2, Cy - (Pane == AsciiPane ? 1 : 0), Cx2 + CharSize.x, Cy);
-				pDC->Rectangle(&CursorText);
+					// Work out cursor location in the ASCII view
+					Off = StartOfAscii + CursorOff;
+					int Cx2 = l.Pos[Side].x1 + CharSize.x * Off;
 
-				// Update position for scrolling
-				int Ox, Oy;
-				pDC->GetOrigin(Ox, Oy);
+					pDC->Colour(Focus() ? LC_TEXT : LC_LOW, 24);
+					int Cy = CurY + CharSize.y - 1;
 
-				CursorHex.Offset(-Ox, -Oy);
-				CursorHex.y1 -= CharSize.y;
+					// hex cursor
+					GRect CursorHex(Cx1, Cy - (Pane == HexPane ? 1 : 0), Cx1 + CharSize.x, Cy);
+					pDC->Rectangle(&CursorHex);
 
-				CursorText.Offset(-Ox, -Oy);
-				CursorText.y1 -= CharSize.y;
+					// ascii cursor
+					GRect CursorText(Cx2, Cy - (Pane == AsciiPane ? 1 : 0), Cx2 + CharSize.x, Cy);
+					pDC->Rectangle(&CursorText);
 
-				CursorPos.New() = CursorHex;
-				CursorPos.New() = CursorText;
+					// Update position for scrolling
+					int Ox, Oy;
+					pDC->GetOrigin(Ox, Oy);
+
+					CursorHex.Offset(-Ox, -Oy);
+					CursorHex.y1 -= CharSize.y;
+
+					CursorText.Offset(-Ox, -Oy);
+					CursorText.y1 -= CharSize.y;
+
+					CursorPos.New() = CursorHex;
+					CursorPos.New() = CursorText;
+					
+				#endif
 			}
 		}
 	}
@@ -1954,6 +2036,50 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 	}
 	
 	CurrentY += Lines * CharSize.y;
+}
+
+bool GHexView::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf)
+{
+	if (Offset < 0)
+		return false;
+
+	GRect r = GetClient();
+	
+	int64 X = Offset % BytesPerLine;
+	int64 Y = Offset / BytesPerLine;
+	
+	int64 YPos = VScroll ? VScroll->Value() : 0;
+	int64 YPx = (Y - YPos) * CharSize.y;
+	int64 XHexPx = 0, XAsciiPx = 0;
+	
+	char16 s[128];
+	int HexLen = 11 + 2 + (X * 3);
+	int AsciiLen = 11 + 2 + 48 + 2 + X;
+	if (!LineBuf)
+	{
+		LineBuf = s;
+		for (unsigned i=0; i<128; i++)
+			s[i] = ' ';
+	}
+	
+	{
+		GDisplayString ds(Font, LineBuf, HexLen);
+		XHexPx = ds.X();
+	}
+	{
+		GDisplayString ds(Font, LineBuf, AsciiLen);
+		XAsciiPx = ds.X();
+	}
+	
+	GRect &rcHex = Loc.New();
+	rcHex.ZOff((CharSize.x<<1), CharSize.y-1);
+	rcHex.Offset(XHexPx, YPx);
+
+	GRect &rcAscii = Loc.New();
+	rcAscii.ZOff(CharSize.x, CharSize.y-1);
+	rcAscii.Offset(XAsciiPx, YPx);
+	
+	return true;
 }
 
 void GHexView::OnPaint(GSurface *pDC)
@@ -1999,6 +2125,26 @@ void GHexView::OnPaint(GSurface *pDC)
 	}
 	else if (GetData(Start, End-Start))
 	{
+		#if 1
+
+		Layout Lo;
+		Lo.Len[0] = End - Start;
+		Lo.Offset[0] = Start;
+		Lo.Data[0] = Buf + (Start - BufPos);
+		Lo.Pos[0] = r;
+		Lo.Same = true;
+		
+		PaintLayout(pDC, Lo, r);
+
+		/*
+		pDC->Colour(GColour(255, 0, 0));
+		for (unsigned i=0; i<DbgRect.Length(); i++)
+		{
+			pDC->Box(&DbgRect[i]);
+		}
+		*/		
+		#else
+		
 		for (int l=0; l<Lines; l++, CurrentY += CharSize.y)
 		{
 			char *p = s;
@@ -2186,6 +2332,8 @@ void GHexView::OnPaint(GSurface *pDC)
 			pDC->Colour(LC_WORKSPACE, 24);
 			pDC->Rectangle(&r);
 		}
+
+		#endif
 	}
 	else
 	{
@@ -2201,68 +2349,6 @@ void GHexView::OnPaint(GSurface *pDC)
 	}
 
 }
-
-/* Old paint code:
-
-				if (Min < LineStart + 16 &&
-					Max >= LineStart)
-				{
-					// Part or all of this line is selected
-
-					int64 s = ((Select - LineStart) * 3) + SelectNibble;
-					int64 e = ((Cursor - LineStart) * 3) + Nibble;
-					if (s > e)
-					{
-						int64 i = s;
-						s = e;
-						e = i;
-					}
-					if (s < 0) s = 0;
-					if (e > 16 * 3 - 2) e = 16 * 3 - 2;
-
-					GArray<int> Border;
-					Border[Border.Length()] = s + HEX_COLUMN;
-					Border[Border.Length()] = e + HEX_COLUMN + 1;
-					Border[Border.Length()] = (s / 3) + TEXT_COLUMN;
-					Border[Border.Length()] = (e / 3) + TEXT_COLUMN + 1;
-					
-					bool Sel = false;
-					int Next = 0;
-					int Cx = 0;
-
-					for (char *S = Utf; S && *S; )
-					{
-						char *e = Next < Border.Length() ? LgiSeekUtf8(Utf, Border[Next++]) : S + strlen(S);
-						GDisplayString Str(Font, S, e - S);
-
-						if (Sel)
-						{
-							Font->Colour(Rgb24(255, 255, 0), Rgb24(0, 0, 255));
-						}
-						else
-						{
-							Font->Colour(LC_TEXT, LC_WORKSPACE);
-						}
-						GRect r;
-						r.ZOff(Str.X()-1, Str.Y()-1);
-						r.Offset(Cx, CurrentY);
-						
-						Str.Draw(pDC, Cx, CurrentY, &r);
-						
-						Cx += Str.X();
-						S = e;
-						Sel = !Sel;
-					}
-					
-					pDC->Colour(LC_WORKSPACE, 24);
-					pDC->Rectangle(Cx, CurrentY, X()-1, CurrentY+CharSize.y-1);
-				}
-				else
-				{
-					// No selection on this line
-					Font->Text(pDC, 0, CurrentY, Utf, -1, &Tr);
-				}
-*/
 
 bool GHexView::OnMouseWheel(double Lines)
 {
