@@ -1395,6 +1395,7 @@ void GHexView::CompareFile(char *CmpFile)
 	if (!GetData(0, Size))
 		return;		
 	
+	/*
 	if (binary_diff(DiffInfo, Buf, BufUsed, &BufB[0], BufB.Length()))
 	{
 		for (unsigned i=0; i<DiffInfo.ctrl.Length(); i++)
@@ -1402,8 +1403,8 @@ void GHexView::CompareFile(char *CmpFile)
 			ctrl_info &c = DiffInfo.ctrl[i];
 			LgiTrace("ctrl[%i]=%i,%i,%i\n", i, (int)c.a[0], (int)c.a[1], (int)c.a[2]);
 		}
-		int asd=0;
 	}
+	*/
 	
 	#else
 	
@@ -1770,13 +1771,15 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 	// First position the layout
 	int Bytes = max(l.Len[0], l.Len[1]);
 	int Lines = (Bytes + BytesPerLine - 1) / BytesPerLine;
-	
+	int Sides = Compare ? 2 : 1;
+	GRect &LastPos = l.Pos[Sides-1];
+
 	// Now draw the layout data
 	char s[256];
 	COLOUR Fore[256];
 	COLOUR Back[256];
 
-	for (int Side = 0; Side < (Compare ? 2 : 1); Side++)
+	for (int Side = 0; Side < Sides; Side++)
 	{
 		if (l.Len[Side] == 0)
 		{
@@ -1935,18 +1938,9 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 					
 					r.x1 = CxF;
 					r.y1 = CurY << GDisplayString::FShift;
-					if (e >= Len)
-						r.x2 = (l.Pos[Side].x2 + 1) << GDisplayString::FShift;
-					else
-						r.x2 = CxF + Str.FX();
+					r.x2 = CxF + Str.FX();
 					r.y2 = (CurY + Str.Y()) << GDisplayString::FShift;
-
-					/*
-					if (e >= Len)
-						r.Set(Cx, CurY, l.Pos[Side].x2, CurY+Str.Y()-1);
-					else
-						r.Set(Cx, CurY, Cx+Str.X()-1, CurY+Str.Y()-1);
-					*/
+					// printf("Line=%i i=%i e=%i Len=%i r=%i,%i,%i,%i\n", Line, i, e, Len, r.x1>>16,r.y1>>16,r.x2>>16,r.y2>>16);
 					
 					Font->Colour(Fore[i], Back[i]);
 					
@@ -1954,6 +1948,13 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 					
 					CxF += Str.FX();
 					i = e;
+				}
+
+				int Cx = CxF >> GDisplayString::FShift;
+				if (Cx < client.x2)
+				{
+					pDC->Colour(LC_WORKSPACE, 24);
+					pDC->Rectangle(Cx, CurY, client.x2, CurY+CharSize.y);
 				}
 				
 				DeleteArray(Wide);
@@ -2029,12 +2030,6 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 		}
 	}
 
-	if (client.x2 > l.Pos[1].x2)
-	{
-		pDC->Colour(LC_WORKSPACE, 24);
-		pDC->Rectangle(l.Pos[1].x2, l.Pos[1].y1, client.x2, l.Pos[1].y2);
-	}
-	
 	CurrentY += Lines * CharSize.y;
 }
 
@@ -2043,8 +2038,6 @@ bool GHexView::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 
 	if (Offset < 0)
 		return false;
 
-	GRect r = GetClient();
-	
 	int64 X = Offset % BytesPerLine;
 	int64 Y = Offset / BytesPerLine;
 	
@@ -2086,10 +2079,6 @@ void GHexView::OnPaint(GSurface *pDC)
 {
 	GRect r = GetClient();
 
-	int i;
-	char s[256];
-	COLOUR Fore[256];
-	COLOUR Back[256];
 	CurrentY = r.y1;
 	int64 YPos = VScroll ? VScroll->Value() : 0;
 	int64 Start = YPos * BytesPerLine;
@@ -2098,13 +2087,13 @@ void GHexView::OnPaint(GSurface *pDC)
 	Font->Transparent(false);
 	CursorPos.Length(0);
 
+	#if 1
+	pDC->Colour(GColour(255, 0, 255));
+	pDC->Rectangle();
+	#endif
+
 	if (CmpLayout.Length())
 	{
-		#if 0
-		pDC->Colour(GColour(255, 0, 255));
-		pDC->Rectangle();
-		#endif
-
 		int DisplayOffset = YPos * CharSize.y;
 		pDC->SetOrigin(0, DisplayOffset);
 		r.Offset(0, DisplayOffset);
@@ -2120,7 +2109,7 @@ void GHexView::OnPaint(GSurface *pDC)
 		if (CurrentY < r.y2)
 		{
 			pDC->Colour(LC_WORKSPACE, 24);
-			// pDC->Rectangle(0, CurrentY, r.x2, r.y2);
+			pDC->Rectangle(0, CurrentY, r.x2, r.y2);
 		}
 	}
 	else if (GetData(Start, End-Start))
@@ -2136,6 +2125,11 @@ void GHexView::OnPaint(GSurface *pDC)
 		
 		PaintLayout(pDC, Lo, r);
 
+		if (CurrentY < r.y2)
+		{
+			pDC->Colour(LC_WORKSPACE, 24);
+			pDC->Rectangle(0, CurrentY, r.x2, r.y2);
+		}
 		/*
 		pDC->Colour(GColour(255, 0, 0));
 		for (unsigned i=0; i<DbgRect.Length(); i++)
