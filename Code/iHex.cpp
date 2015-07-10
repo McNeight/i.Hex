@@ -1772,7 +1772,6 @@ void GHexView::PaintLayout(GSurface *pDC, Layout &l, GRect &client)
 	int Bytes = max(l.Len[0], l.Len[1]);
 	int Lines = (Bytes + BytesPerLine - 1) / BytesPerLine;
 	int Sides = Compare ? 2 : 1;
-	GRect &LastPos = l.Pos[Sides-1];
 
 	// Now draw the layout data
 	char s[256];
