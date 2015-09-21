@@ -25,8 +25,6 @@
  */
 
 #if 0
-__FBSDID("$FreeBSD: src/usr.bin/bsdiff/bsdiff/bsdiff.c,v 1.1 2005/08/06 01:59:05 cperciva Exp $");
-#endif
 
 #include <sys/types.h>
 
@@ -652,3 +650,5 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
+#endif
