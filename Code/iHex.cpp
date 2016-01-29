@@ -2086,7 +2086,7 @@ void GHexView::OnPaint(GSurface *pDC)
 	Font->Transparent(false);
 	CursorPos.Length(0);
 
-	#if 1
+	#if 0
 	pDC->Colour(GColour(255, 0, 255));
 	pDC->Rectangle();
 	#endif
