@@ -12,7 +12,7 @@
 enum BaseType
 {
 	TypeNull,
-	TypeInt,
+	TypeInteger,
 	TypeFloat,
 	TypeChar,
 	TypeStrZ,
@@ -483,7 +483,7 @@ struct VarDef : public Member
 		if (!Value.IsNull() &&
 			Type &&
 			Type->Base &&
-			Type->Base->Type == TypeInt)
+			Type->Base->Type == TypeInteger)
 		{
 			char *v = Value.Str();
 			if (strnicmp(v, "0x", 2) == 0)
@@ -535,7 +535,7 @@ struct VarDef : public Member
 				default:
 					LgiAssert(!"Not impl");
 					break;
-				case TypeInt:
+				case TypeInteger:
 				{
 					int64 Val = CastInt(Addr, Little);
 					f = (float)Val;
@@ -633,7 +633,7 @@ struct VarDef : public Member
 			default:
 				LgiAssert(!"Not impl");
 				break;
-			case TypeInt:
+			case TypeInteger:
 			{
 				switch (b->Bytes)
 				{
@@ -842,7 +842,7 @@ public:
 								else Status = true;
 							}
 						}
-						else if (d->Type->Base->Type == TypeInt)
+						else if (d->Type->Base->Type == TypeInteger)
 						{
 							int Val = 0;
 							if (d->HasValue(Val))
@@ -1578,7 +1578,7 @@ public:
 					default:
 						LgiAssert(!"Not impl");
 						break;
-					case TypeInt:
+					case TypeInteger:
 					{
 						if (!DoInt(d, View, ArrayLength))
 							return false;
@@ -1894,7 +1894,7 @@ public:
 			v->Base = new Basic;
 			v->Base->Array = false;
 			v->Base->Signed = true;
-			v->Base->Type = TypeInt;
+			v->Base->Type = TypeInteger;
 			if (XCmp(t+3, "8") == 0)
 				v->Base->Bytes = 1;
 			else if (XCmp(t+3, "16") == 0)
@@ -1910,7 +1910,7 @@ public:
 			v->Base = new Basic;
 			v->Base->Array = false;
 			v->Base->Signed = false;
-			v->Base->Type = TypeInt;
+			v->Base->Type = TypeInteger;
 			if (XCmp(t+4, "8") == 0)
 				v->Base->Bytes = 1;
 			else if (XCmp(t+4, "16") == 0)
