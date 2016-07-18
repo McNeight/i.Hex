@@ -8,6 +8,7 @@
 **		fret@memecode.com
 */
 
+
 /*
 
 Hex view line format:
@@ -31,6 +32,7 @@ Hex view line format:
 #endif
 #include "GClipBoard.h"
 #include "Diff.h"
+#include "LgiRes.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Application identification
