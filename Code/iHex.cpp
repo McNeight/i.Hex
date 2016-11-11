@@ -528,59 +528,19 @@ void IHexBar::SetOffset(int64 Offset)
 
 int64 IHexBar::GetOffset(int IsHex, bool *Select)
 {
-	int64 c = 0;
-	char *o = GetCtrlName(IDC_OFFSET);
-	if (o)
+	int64 c = -1;
+	GString s = GetCtrlName(IDC_OFFSET);
+	GString Src;
+	Src.Printf("return %s;", s.Get());
+	
+	GScriptEngine Eng(this, NULL, NULL);
+	
+	GVariant Ret;
+	GCompiledCode Code;
+	GExecutionStatus Status = Eng.RunTemporary(&Code, Src, &Ret);
+	if (Status != ScriptError)
 	{
-		if (IsHex < 0)
-			IsHex = GetCtrlValue(IDC_IS_HEX);
-			
-		char LastOp = 0;
-		for (const char *s = o; s && *s; )
-		{
-			char *Tok = LgiTokStr(s);
-			if (Tok)
-			{
-				printf("Tok='%s'\n", Tok);
-				
-				if (*Tok == '-' ||
-					*Tok == '+' ||
-					*Tok == '&')
-				{
-					LastOp = *Tok;
-				}
-				else
-				{
-					int64 i;
-					if (IsHex)
-					{
-						i = htoi64(Tok);
-					}
-					else
-					{
-						i = atoi64(Tok);
-					}
-
-					if (LastOp == '+' ||
-						LastOp == '&')
-					{
-						c += i;
-
-						if (LastOp == '&' && Select) *Select = true;
-					}
-					else if (LastOp == '-')
-					{
-						c -= i;
-					}
-					else
-					{
-						c = i;
-					}
-					printf("i=%i c=%i\n", (int)i, (int)c);
-				}
-				DeleteArray(Tok);
-			}
-		}
+		c = Ret.CastInt64();
 	}
 
 	return c;
