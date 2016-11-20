@@ -2129,7 +2129,7 @@ public:
 		if (State.Base)
 		{
 			#define CheckTok(lit) \
-				if (!(t && XCmp(t, #lit) == 0)) \
+				if (!(t && XCmp(t, lit) == 0)) \
 				{ \
 					char m[256], *u = LgiNewUtf16To8(t); \
 					sprintf(m, "expecting '%s', got '%s'", lit, u); \

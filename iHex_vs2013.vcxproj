@@ -204,10 +204,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\..\Lgi\trunk\src\common\Coding\ExternCall.asm" />
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="..\..\Lgi\trunk\src\common\Coding\ExternCall.asm" />
+    <MASM Include="..\..\Lgi\trunk\src\common\Coding\ExternCall.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
