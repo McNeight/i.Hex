@@ -1008,7 +1008,7 @@ public:
 		char16 *v = Defines.Find(Name);
 		if (v)
 		{
-			GAutoString u(LgiNewUtf16To8(v));
+			GAutoString u(WideToUtf8(v));
 			GScriptEngine e(App, App, NULL);
 			bool Status = e.EvaluateExpression(&Value, this, u);
 			return Status;
@@ -1396,7 +1396,7 @@ public:
 					}
 					w[ArrayLength] = 0;
 
-					// u = LgiNewUtf16To8(w);
+					// u = WideToUtf8(w);
 					u = DisplayString(w, ArrayLength);
 				}
 				DeleteArray(w);
@@ -1476,7 +1476,7 @@ public:
 					}
 					w[zstringLen] = 0;
 
-					u = LgiNewUtf16To8(w);
+					u = WideToUtf8(w);
 				}
 				DeleteArray(w);
 
@@ -1818,7 +1818,7 @@ public:
 			s = NULL;
 			if (Init)
 			{
-				Base.Reset(LgiNewUtf8To16(Init));
+				Base.Reset(Utf8ToWide(Init));
 				s = Base;
 			}
 		}
@@ -1835,7 +1835,7 @@ public:
 			if (!t)
 				return NULL;
 			
-			char *u = LgiNewUtf16To8(t);
+			char *u = WideToUtf8(t);
 			DeleteArray(t);
 			if (!u)
 				return NULL;
@@ -1874,7 +1874,7 @@ public:
 
 	char *To8(char16 *w)
 	{
-		char *u = LgiNewUtf16To8(w);
+		char *u = WideToUtf8(w);
 		DeleteArray(w);
 		return u;
 	}
@@ -1978,7 +1978,7 @@ public:
 		}
 		else
 		{
-			char *u = LgiNewUtf16To8(t);
+			char *u = WideToUtf8(t);
 			if (u)
 			{
 				StructDef *s = GetStruct(u);
@@ -2014,7 +2014,7 @@ public:
 		VarDefType *Type = ParseDefType(t);
 		if (!Type)
 		{
-			char m[256], *u = LgiNewUtf16To8(t);
+			char m[256], *u = WideToUtf8(t);
 			sprintf(m, "expected type, got '%s' instead", u);
 			Err(State, m);
 			DeleteArray(u);
@@ -2131,7 +2131,7 @@ public:
 			#define CheckTok(lit) \
 				if (!(t && XCmp(t, lit) == 0)) \
 				{ \
-					char m[256], *u = LgiNewUtf16To8(t); \
+					char m[256], *u = WideToUtf8(t); \
 					sprintf(m, "expecting '%s', got '%s'", lit, u); \
 					Err(State, m); \
 					DeleteArray(u) \
