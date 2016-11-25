@@ -1018,7 +1018,7 @@ public:
 	}
 
 	template<typename T>
-	T *DisplayString(T *str, int chars)
+	T *DisplayString(T *str, int chars, bool Signed = true)
 	{
 		GArray<T> out;
 		for (int i=0; i<chars; i++)
@@ -1032,6 +1032,11 @@ public:
 				case '\t':
 					out.Add('\\'); out.Add('t'); break;
 				default:
+					if (Signed && str[i] == 0)
+					{
+						i = chars;
+						break;
+					}
 					if (str[i] < ' ' || str[i] >= 0x7f)
 					{
 						char hex[16];
@@ -1369,7 +1374,7 @@ public:
 			else if (d->Type->Base->Bytes == 1)
 			{
 				// char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
-				char *u = DisplayString((char*)View.Aligned(), ArrayLength);
+				char *u = DisplayString((char*)View.Aligned(), ArrayLength, d->Type->Base->Signed);
 
 				View.Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
 				if (u && d->Value.Str())
@@ -1884,7 +1889,7 @@ public:
 		return Errs.NewStr();
 	}
 	
-	VarDefType *ParseDefType(char16 *t)
+	VarDefType *ParseDefType(char16 *t, bool ForceUnsigned)
 	{
 		VarDefType *v = 0;
 
@@ -1893,7 +1898,7 @@ public:
 			v = new VarDefType;
 			v->Base = new Basic;
 			v->Base->Array = false;
-			v->Base->Signed = true;
+			v->Base->Signed = !ForceUnsigned;
 			v->Base->Type = TypeInteger;
 			if (XCmp(t+3, "8") == 0)
 				v->Base->Bytes = 1;
@@ -1953,7 +1958,7 @@ public:
 			v = new VarDefType;
 			v->Base = new Basic;
 			v->Base->Array = false;
-			v->Base->Signed = false;
+			v->Base->Signed = !ForceUnsigned;
 			v->Base->Type = TypeChar;
 			if (XCmp(t+4, "16") == 0)
 				v->Base->Bytes = 2;
@@ -1998,6 +2003,7 @@ public:
 	{
 		bool IsHidden = false;
 		bool IsDebug = false;
+		bool ForceUnsigned = false;
 
 		if (!XCmp(t, "hidden"))
 		{
@@ -2011,7 +2017,13 @@ public:
 			t = State.NextW();
 		}
 
-		VarDefType *Type = ParseDefType(t);
+		if (!XCmp(t, "unsigned"))
+		{
+			ForceUnsigned = true;
+			t = State.NextW();
+		}
+
+		VarDefType *Type = ParseDefType(t, ForceUnsigned);
 		if (!Type)
 		{
 			char m[256], *u = WideToUtf8(t);
