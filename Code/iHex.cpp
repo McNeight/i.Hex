@@ -34,6 +34,13 @@ Hex view line format:
 #include "Diff.h"
 #include "LgiRes.h"
 
+enum FormatType
+{
+	FmtText,
+	FmtHex,
+	FmtCode
+};
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Application identification
 const char *AppName = "i.Hex";
@@ -346,7 +353,7 @@ public:
 	void SelectionFillRandom(GStream *Rnd);
 	void CompareFile(char *File);
 
-	void Copy(bool AsHex);
+	void Copy(FormatType Fmt);
 	void Paste();
 
 	bool HasSelection() { return Select >= 0; }
@@ -773,7 +780,7 @@ void GHexView::SetIsHex(bool i)
 	}
 }
 
-void GHexView::Copy(bool AsHex)
+void GHexView::Copy(FormatType Fmt)
 {
 	GClipBoard c(this);
 
@@ -790,15 +797,25 @@ void GHexView::Copy(bool AsHex)
 		{
 			Len = BufUsed - Offset;
 		}
-		
+
 		GStringPipe p;
+		if (Fmt == FmtCode)
+			p.Print("unsigned char Var[] = {\n\t");
+		
 		for (int i=0; i<Len; i++)
 		{
-			if (AsHex)
+			if (Fmt == FmtHex)
 				p.Print("%s%2.2X", i ? " " : "", Ptr[i]);
+			else if (Fmt == FmtCode)
+				p.Print("0x%2.2X%s", Ptr[i], i == Len-1 ? "" : ",");
 			else
 				p.Print("%c", Ptr[i]);
+
+			if (Fmt == FmtCode && i % 32 == 31)
+				p.Print("\n\t");
 		}
+		if (Fmt == FmtCode)
+			p.Print("\n};\n");
 		GAutoString str(p.NewStr());
 	
 		#ifdef WIN32
@@ -2078,7 +2095,7 @@ void GHexView::OnPaint(GSurface *pDC)
 		#if 1
 
 		Layout Lo;
-		Lo.Len[0] = End - Start;
+		Lo.Len[0] = End - Start + 1;
 		Lo.Offset[0] = Start;
 		Lo.Data[0] = Buf + (Start - BufPos);
 		Lo.Pos[0] = r;
@@ -2701,6 +2718,7 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 			{
 				Tools->AppendItem("Copy Hex", IDM_COPY_HEX, true, -1, "Ctrl+C");
 				Tools->AppendItem("Copy Text", IDM_COPY_TEXT, true, -1, "Ctrl+Shift+C");
+				Tools->AppendItem("Copy As Code", IDM_COPY_CODE, true, -1, "Ctrl+Alt+C");
 				Tools->AppendItem("Paste", IDM_PASTE, true, -1, "Ctrl+V");
 				Tools->AppendSeparator();
 
@@ -2947,12 +2965,17 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 	{
 		case IDM_COPY_HEX:
 		{
-			Doc->Copy(true);
+			Doc->Copy(FmtHex);
 			break;
 		}
 		case IDM_COPY_TEXT:
 		{
-			Doc->Copy(false);
+			Doc->Copy(FmtText);
+			break;
+		}
+		case IDM_COPY_CODE:
+		{
+			Doc->Copy(FmtCode);
 			break;
 		}
 		case IDM_PASTE:
