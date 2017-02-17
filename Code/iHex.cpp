@@ -850,7 +850,7 @@ void GHexView::Paste()
 		{
 			// Convert from binary...
 			GArray<uint8> Out;
-			uint8 High = 0;
+			int High = -1;
 			for (char *i = Txt; *i; i++)
 			{
 				int n = -1;
@@ -862,10 +862,10 @@ void GHexView::Paste()
 					n = *i - 'A' + 10;
 				if (n >= 0)
 				{
-					if (High)
+					if (High >= 0)
 					{
 						Out.Add(High << 4 | n);
-						High = 0;
+						High = -1;
 					}
 					else
 					{
