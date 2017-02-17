@@ -842,7 +842,48 @@ void GHexView::Paste()
 			DoInfo();
 		}	
 	}
+	else
 	#endif
+	{
+		GAutoString Txt(c.Text());
+		if (Txt)
+		{
+			// Convert from binary...
+			GArray<uint8> Out;
+			uint8 High = 0;
+			for (char *i = Txt; *i; i++)
+			{
+				int n = -1;
+				if (*i >= '0' && *i <= '9')
+					n = *i - '0';
+				else if (*i >= 'a' && *i <= 'f')
+					n = *i - 'a' + 10;
+				else if (*i >= 'A' && *i <= 'F')
+					n = *i - 'A' + 10;
+				if (n >= 0)
+				{
+					if (High)
+					{
+						Out.Add(High << 4 | n);
+						High = 0;
+					}
+					else
+					{
+						High = n;
+					}
+				}
+			}
+
+			if (Out.Length() &&
+				GetData(Cursor, Out.Length()))
+			{
+				memcpy(Buf + Cursor - BufPos, &Out[0], Out.Length());
+				App->SetDirty(true);
+				Invalidate();
+				DoInfo();
+			}
+		}
+	}
 }
 
 void GHexView::SetScroll()
@@ -1652,7 +1693,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 	{
 		int64 Last = LgiCurrentTime();
 		int64 Start = Last;
-		GProgressDlg Dlg(0, true);
+		GProgressDlg Dlg(NULL);
 		GArray<char> Buf;
 		Buf.Length(2 << 20);
 		Dlg.SetLimits(0, Len);
