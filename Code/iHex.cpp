@@ -44,6 +44,7 @@ enum FormatType
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Application identification
 const char *AppName = "i.Hex";
+const char *Untitled = "Untitled Document";
 bool CancelSearch = false;
 
 #define ColourSelectionFore			Rgb24(255, 255, 0)
@@ -346,6 +347,7 @@ public:
 	GHexView(AppWnd *app, IHexBar *bar);
 	~GHexView();
 
+	bool CreateFile(int64 Len);
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(char *FileName);
 	bool HasFile() { return File != 0; }
@@ -830,17 +832,10 @@ void GHexView::Paste()
 	GClipBoard c(this);
 
 	GAutoPtr<uint8> Ptr;
-	#ifdef WIN32
 	int Len = 0;
+	#ifdef WIN32
 	if (c.Binary(CF_PRIVATEFIRST, Ptr, &Len))
 	{
-		if (GetData(Cursor, Len))
-		{
-			memcpy(Buf + Cursor - BufPos, Ptr, Len);
-			App->SetDirty(true);
-			Invalidate();
-			DoInfo();
-		}	
 	}
 	else
 	#endif
@@ -874,15 +869,29 @@ void GHexView::Paste()
 				}
 			}
 
-			if (Out.Length() &&
-				GetData(Cursor, Out.Length()))
+			if (Out.Length())
 			{
-				memcpy(Buf + Cursor - BufPos, &Out[0], Out.Length());
-				App->SetDirty(true);
-				Invalidate();
-				DoInfo();
+				Len = Out.Length();
+				Ptr.Reset(Out.Release());
 			}
 		}
+	}
+
+	if (Ptr && Len > 0)
+	{
+		Cursor = MAX(0, Cursor);
+		if (!GetData(Cursor, Len))
+		{
+			if (!CreateFile(Len))
+				return;
+			if (!GetData(0, Len))
+				return;
+		}
+
+		memcpy(Buf + Cursor - BufPos, Ptr, Len);
+		App->SetDirty(true);
+		Invalidate();
+		DoInfo();
 	}
 }
 
@@ -917,7 +926,7 @@ bool GHexView::GetData(int64 Start, int Len)
 	static bool IsAsking = false;
 	bool Status = false;
 
-	if (!IsAsking && File && File->IsOpen())
+	if (!IsAsking) //  && File && File->IsOpen()
 	{
 		// is the buffer allocated
 		if (!Buf)
@@ -932,8 +941,6 @@ bool GHexView::GetData(int64 Start, int Len)
 		if (Start < BufPos || (Start + Len) >= (BufPos + BufLen))
 		{
 			// clear changes
-			BufUsed = 0;
-			
 			IsAsking = true;
 			bool IsClean = App->SetDirty(false);
 			IsAsking = false;
@@ -943,21 +950,33 @@ bool GHexView::GetData(int64 Start, int Len)
 				// move buffer to cover cursor pos
 				int Half = BufLen >> 1;
 				BufPos = Start - (Start % Half);
-				if (File->Seek(BufPos, SEEK_SET) == BufPos)
+				if (File)
 				{
-					memset(Buf, 0xcc, BufLen);
-					BufUsed = File->Read(Buf, BufLen);
-					Status =	(Start >= BufPos) &&
-								((Start + Len) < (BufPos + BufUsed));
-
-					// Check for comparision file
-					if (Compare)
+					if (File->Seek(BufPos, SEEK_SET) == BufPos)
 					{
-						if (Compare->Seek(BufPos, SEEK_SET) == BufPos)
+						memset(Buf, 0xcc, BufLen);
+						BufUsed = File->Read(Buf, BufLen);
+						Status =	(Start >= BufPos) &&
+									((Start + Len) < (BufPos + BufUsed));
+
+						// Check for comparision file
+						if (Compare)
 						{
-							// Compare->Read(CompareMap, BufUsed);
+							if (Compare->Seek(BufPos, SEEK_SET) == BufPos)
+							{
+								// Compare->Read(CompareMap, BufUsed);
+							}
 						}
 					}
+					else
+					{
+						BufUsed = 0;
+					}
+				}
+				else
+				{
+					// In memory doc?
+					Status = true;
 				}
 			}
 		}
@@ -1552,6 +1571,44 @@ void GHexView::CompareFile(char *CmpFile)
 	Invalidate();
 	
 	#endif
+}
+
+bool GHexView::CreateFile(int64 Len)
+{
+	if (!App->SetDirty(false))
+		return false;
+
+	DeleteObj(Compare);
+	// CmpItems.Length(0);
+	CmpLayout.Length(0);
+
+	BufA.Length(0);
+	BufB.Length(0);
+
+	DeleteObj(File);
+	DeleteArray(Buf);
+
+	BufPos = 0;
+	Buf = new uchar[BufLen = Len];
+	if (!Buf)
+		return false;
+
+	memset(Buf, 0, Len);
+	BufUsed = Len;
+	Focus(true);
+	Size = Len;
+	SetCursor(0);
+	SetScroll();
+
+	if (Bar)
+		Bar->SetCtrlValue(IDC_OFFSET, 0);
+
+	Invalidate();
+	DoInfo();
+	App->Name(AppName);
+	App->OnDocument(true);
+
+	return true;
 }
 
 bool GHexView::OpenFile(char *FileName, bool ReadOnly)
@@ -2858,8 +2915,8 @@ void AppWnd::OnDirty(bool NewValue)
 	CmdSave.Enabled(NewValue);
 	CmdSaveAs.Enabled(NewValue);
 	
-	CmdClose.Enabled(Doc && Doc->HasFile());
-	CmdChangeSize.Enabled(Doc && Doc->HasFile());
+	// CmdClose.Enabled(Doc && Doc->HasFile());
+	// CmdChangeSize.Enabled(Doc && Doc->HasFile());
 }
 
 bool AppWnd::OnKey(GKey &k)
@@ -3138,10 +3195,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			if (Doc)
 			{
 				Doc->OpenFile(0, false);
-				CmdFind.Enabled(false);
-				CmdNext.Enabled(false);
-				CmdVisualise.Enabled(false);
-				CmdText.Enabled(false);
+				OnDocument(false);
 				OnDirty(GetDirty());
 			}
 			break;
@@ -3290,10 +3344,7 @@ bool AppWnd::OpenFile(char *FileName, bool ReadOnly)
 	if (Doc)
 	{
 		Status = Doc->OpenFile(FileName, ReadOnly);
-		CmdFind.Enabled(Status);
-		CmdNext.Enabled(Status);
-		CmdVisualise.Enabled(Status);
-		CmdText.Enabled(Status);
+		OnDocument(Status);
 		OnDirty(GetDirty());
 	}
 	return Status;
@@ -3307,6 +3358,22 @@ bool AppWnd::SaveFile(char *FileName)
 		Status = Doc->SaveFile(FileName);
 	}
 	return Status;
+}
+
+void AppWnd::OnDocument(bool Valid)
+{
+	// LgiTrace("%s:%i - OnDocument(%i)\n", _FL, Valid);
+	CmdFind.Enabled(Valid);
+	CmdNext.Enabled(Valid);
+	CmdVisualise.Enabled(Valid);
+	CmdText.Enabled(Valid);
+
+	bool Dirt = GetDirty();
+	CmdSave.Enabled(Valid && Dirt);
+	CmdSaveAs.Enabled(Valid);
+	
+	CmdClose.Enabled(Valid);
+	CmdChangeSize.Enabled(Valid);
 }
 
 //////////////////////////////////////////////////////////////////

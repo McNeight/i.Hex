@@ -120,6 +120,7 @@ public:
 	void Pour();
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(char *FileName);
+	void OnDocument(bool Valid);
 
 	bool OnKey(GKey &k);
 	void OnPosChange();
