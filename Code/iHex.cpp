@@ -353,6 +353,7 @@ public:
 	bool HasFile() { return File != 0; }
 	void SaveSelection(char *File);
 	void SelectionFillRandom(GStream *Rnd);
+	void SelectAll();
 	void CompareFile(char *File);
 
 	void Copy(FormatType Fmt);
@@ -1734,6 +1735,12 @@ void GHexView::SaveSelection(char *FileName)
 			}									
 		}
 	}
+}
+
+void GHexView::SelectAll()
+{
+	SetCursor(0, 0, false);
+	SetCursor(Size-1, 1, true);
 }
 
 void GHexView::SelectionFillRandom(GStream *Rnd)
@@ -3222,7 +3229,8 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 				s.Parent(this);
 				if (s.Open())
 				{
-					Doc->CompareFile(s.Name());
+					char *Sn = s.Name();
+					Doc->CompareFile(Sn);
 				}
 			}
 			break;
@@ -3237,6 +3245,12 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 					Doc->SetFileSize(Dlg.Size);
 				}
 			}
+			break;
+		}
+		case IDM_SELECT_ALL:
+		{
+			if (Doc)
+				Doc->SelectAll();
 			break;
 		}
 		case IDM_HELP:
