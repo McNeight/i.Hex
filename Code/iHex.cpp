@@ -2793,45 +2793,16 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 	if (_Create())
 	{
 		DropTarget(true);
-		if (_LoadMenu())
+		if (_LoadMenu("IDM_MENU", NULL, IDM_FILE_MENU, IDM_RECENT_MENU))
 		{
-			if (_FileMenu)
-			{
-				// CmdSaveAs.MenuItem = Menu->FindItem(IDM_SAVEAS);
-				GMenuItem *i = Menu->FindItem(IDM_SAVEAS);
-				DeleteObj(i);
+			GMenuItem *i = Menu->FindItem(IDM_SAVEAS);
+			DeleteObj(i);
 
-				CmdSave.MenuItem = Menu->FindItem(IDM_SAVE);
-				CmdClose.MenuItem = Menu->FindItem(IDM_CLOSE);
-				CmdChangeSize.MenuItem = _FileMenu->AppendItem("Change Size", IDM_CHANGE_FILE_SIZE, true, 3);
-				_FileMenu->AppendSeparator(4);
-				_FileMenu->AppendItem("Compare With File", IDM_COMPARE, true, 5);
-				_FileMenu->AppendSeparator(6);
-				CmdFind.MenuItem = _FileMenu->AppendItem("Find\tCtrl+F", IDM_SEARCH, false, 7);
-				CmdNext.MenuItem = _FileMenu->AppendItem("Next\tF3", IDM_NEXT, false, 8);
-			}
-
-			GSubMenu *Tools = Menu->AppendSub("&Tools");
-			if (Tools)
-			{
-				Tools->AppendItem("Copy Hex", IDM_COPY_HEX, true, -1, "Ctrl+C");
-				Tools->AppendItem("Copy Text", IDM_COPY_TEXT, true, -1, "Ctrl+Shift+C");
-				Tools->AppendItem("Copy As Code", IDM_COPY_CODE, true, -1, "Ctrl+Alt+C");
-				Tools->AppendItem("Paste", IDM_PASTE, true, -1, "Ctrl+V");
-				Tools->AppendSeparator();
-
-				Tools->AppendItem("Save To File", IDM_SAVE_SELECTION, true);
-				Tools->AppendItem("Fill With Random Bytes", IDM_RND_SELECTION, true);
-				Tools->AppendItem("Combine Files", IDM_COMBINE_FILES, true);
-			}
-
-			GSubMenu *Help = Menu->AppendSub("&Help");
-			if (Help)
-			{
-				Help->AppendItem("&Help", IDM_HELP, true);
-				Help->AppendSeparator();
-				Help->AppendItem("&About", IDM_ABOUT, true);
-			}
+			CmdSave.MenuItem = Menu->FindItem(IDM_SAVE);
+			CmdClose.MenuItem = Menu->FindItem(IDM_CLOSE);
+			CmdChangeSize.MenuItem = Menu->FindItem(IDM_CHANGE_SIZE);
+			CmdFind.MenuItem = Menu->FindItem(IDM_SEARCH);
+			CmdNext.MenuItem = Menu->FindItem(IDM_NEXT);
 		}
 
 		Tools = LgiLoadToolbar(this, "Tools.gif", 24, 24);
@@ -3213,7 +3184,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			}
 			break;
 		}
-		case IDM_RND_SELECTION:
+		case IDM_FILL_RND:
 		{
 			if (!Doc)
 				break;
@@ -3243,7 +3214,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			}
 			break;
 		}
-		case IDM_COMPARE:
+		case IDM_FILE_COMPARE:
 		{
 			if (Doc && Doc->HasFile())
 			{
@@ -3256,7 +3227,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			}
 			break;
 		}
-		case IDM_CHANGE_FILE_SIZE:
+		case IDM_CHANGE_SIZE:
 		{
 			if (Doc && Doc->HasFile())
 			{
