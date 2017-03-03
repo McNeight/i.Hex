@@ -562,6 +562,12 @@ bool GHexBuffer::GetData(int64 Start, int Len)
 	static bool IsAsking = false;
 	bool Status = false;
 
+	// is the range outside the buffer's bounds?
+	if (Start < 0 || Start + Len > Size)
+	{
+		return false;
+	}
+
 	if (!IsAsking) //  && File && File->IsOpen()
 	{
 		// is the buffer allocated
@@ -574,7 +580,7 @@ bool GHexBuffer::GetData(int64 Start, int Len)
 		}
 
 		// is the cursor outside the buffer?
-		if (Start < BufPos || (Start + Len) >= (BufPos + BufLen))
+		if (Start < BufPos || (Start + Len) > (BufPos + BufLen))
 		{
 			// clear changes
 			IsAsking = true;
@@ -585,7 +591,7 @@ bool GHexBuffer::GetData(int64 Start, int Len)
 			{
 				// move buffer to cover cursor pos
 				int Half = BufLen >> 1;
-				BufPos = Start - (Start % Half);
+				BufPos = Start - (Half ? (Start % Half) : 0);
 				if (File)
 				{
 					if (File->Seek(BufPos, SEEK_SET) == BufPos)
@@ -997,25 +1003,56 @@ void GHexView::Paste()
 			// Convert from binary...
 			GArray<uint8> Out;
 			int High = -1;
+
+			bool HasComma = false;
 			for (char *i = Txt; *i; i++)
 			{
-				int n = -1;
-				if (*i >= '0' && *i <= '9')
-					n = *i - '0';
-				else if (*i >= 'a' && *i <= 'f')
-					n = *i - 'a' + 10;
-				else if (*i >= 'A' && *i <= 'F')
-					n = *i - 'A' + 10;
-				if (n >= 0)
+				if (*i == ',')
 				{
-					if (High >= 0)
+					HasComma = true;
+					break;
+				}
+			}
+
+			if (HasComma)
+			{
+				// Comma separated integers?
+				for (char *i = Txt; *i; )
+				{
+					while (*i && !IsDigit(*i))
+						i++;
+
+					char *e = i;
+					while (*e && IsDigit(*e))
+						e++;
+
+					Out.Add(Atoi(i));
+					i = e;
+				}
+			}
+			else
+			{
+				// Hex data?
+				for (char *i = Txt; *i; i++)
+				{
+					int n = -1;
+					if (*i >= '0' && *i <= '9')
+						n = *i - '0';
+					else if (*i >= 'a' && *i <= 'f')
+						n = *i - 'a' + 10;
+					else if (*i >= 'A' && *i <= 'F')
+						n = *i - 'A' + 10;
+					if (n >= 0)
 					{
-						Out.Add(High << 4 | n);
-						High = -1;
-					}
-					else
-					{
-						High = n;
+						if (High >= 0)
+						{
+							Out.Add(High << 4 | n);
+							High = -1;
+						}
+						else
+						{
+							High = n;
+						}
 					}
 				}
 			}
@@ -1150,6 +1187,8 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 	
 	if (!b)
 		b = Cursor.Buf;
+	if (!b)
+		return;
 
 	if (Selecting)
 	{
@@ -1510,29 +1549,49 @@ void GHexView::DoInfo()
 			Bar->NotifyOff = false;
 		}
 
-		if (b->GetData(Cursor.Index, 2))
+		GViewI *Hex, *Dec;
+		if (w->GetViewById(IDC_HEX_2, Hex) &&
+			w->GetViewById(IDC_DEC_2, Dec))
 		{
-			uint16 *sp = (uint16*)(b->Buf+(Cursor.Index - b->BufPos));
-			uint16 c = *sp;
-			SwapBytes(&c, sizeof(c));
-			int c2 = (int16)c;
+			bool Valid = b->GetData(Cursor.Index, 2);
+			GString sHex, sDec;
+			if (Valid)
+			{
+				uint16 *sp = (uint16*)(b->Buf+(Cursor.Index - b->BufPos));
+				uint16 c = *sp;
+				SwapBytes(&c, sizeof(c));
+				int c2 = (int16)c;
+				sDec.Printf("%i", IsSigned ? c2 : c);
+				sHex.Printf("%04.4X", c);
+			}
 
-			sprintf(s, "%i", IsSigned ? c2 : c);
-			w->SetCtrlName(IDC_DEC_2, s);
-			sprintf(s, "%04.4X", c);
-			w->SetCtrlName(IDC_HEX_2, s);
+			Dec->Name(Valid ? sDec : NULL);
+			Hex->Name(Valid ? sHex : NULL);
+
+			Dec->Enabled(Valid);
+			Hex->Enabled(Valid);
 		}
 
-		if (b->GetData(Cursor.Index, 4))
+		if (w->GetViewById(IDC_HEX_4, Hex) &&
+			w->GetViewById(IDC_DEC_4, Dec))
 		{
-			uint32 *lp = (uint32*)(b->Buf + (Cursor.Index - b->BufPos));
-			uint32 c = *lp;
-			SwapBytes(&c, sizeof(c));
+			bool Valid = b->GetData(Cursor.Index, 4);
+			GString sHex, sDec;
+			if (Valid)
+			{
+				uint32 *lp = (uint32*)(b->Buf + (Cursor.Index - b->BufPos));
+				uint32 c = *lp;
+				SwapBytes(&c, sizeof(c));
 
-			sprintf(s, IsSigned ? "%i" : "%u", c);
-			w->SetCtrlName(IDC_DEC_4, s);
-			sprintf(s, "%08.8X", c);
-			w->SetCtrlName(IDC_HEX_4, s);
+				sDec.Printf(IsSigned ? "%i" : "%u", c);
+				sHex.Printf("%08.8X", c);
+			}
+
+			Dec->Name(Valid ? sDec : NULL);
+			Hex->Name(Valid ? sHex : NULL);
+
+			Dec->Enabled(Valid);
+			Hex->Enabled(Valid);
 		}
 	}
 }
@@ -1568,6 +1627,9 @@ bool GHexView::CreateFile(int64 Len)
 		Buf.PopLast();
 	}
 
+	if (!Buf[0])
+		Buf[0] = new GHexBuffer(this);
+	
 	GHexBuffer *b = Buf[0];
 	b->Empty();
 	b->Buf = new uchar[b->BufLen = Len];
