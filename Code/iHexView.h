@@ -67,6 +67,32 @@ public:
 		return Size;
 	}
 
+	bool Open(const char *FileName, bool ReadOnly)
+	{
+		Empty();
+
+		File = new GFile;
+		if (!File)
+			return false;
+
+		if (!File->Open(FileName, ReadOnly ? O_READ : O_READWRITE))
+		{
+			if (!ReadOnly && File->Open(FileName, O_READ))
+				IsReadOnly = true;
+		}
+		else
+		{
+			IsReadOnly = false;
+		}
+
+		if (!File->IsOpen())
+			return false;
+
+		Size = File->GetSize();
+
+		return true;
+	}
+
 	void Empty()
 	{
 		DeleteObj(File);
@@ -85,6 +111,7 @@ public:
 	}
 
 	bool GetData(int64 Start, int Len);
+	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
 	void OnPaint(GSurface *pDC, int64 Start, int64 Len);
 };
 
@@ -206,7 +233,6 @@ public:
 	void SetInt(uint32 Byte);
 	void InvalidateCursor();
 	void InvalidateLines(GArray<GRect> &a, GArray<GRect> &b);
-	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
 
 	bool Pour(GRegion &r);
 

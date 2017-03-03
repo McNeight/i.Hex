@@ -622,6 +622,48 @@ bool GHexBuffer::GetData(int64 Start, int Len)
 	return Status;
 }
 
+bool GHexBuffer::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf)
+{
+	if (Offset < 0)
+		return false;
+
+	int64 X = Offset % View->BytesPerLine;
+	int64 Y = Offset / View->BytesPerLine;
+	
+	int64 YPos = View->VScroll ? View->VScroll->Value() : 0;
+	int64 YPx = (Y - YPos) * View->CharSize.y;
+	int64 XHexPx = 0, XAsciiPx = 0;
+	
+	char16 s[128];
+	int HexLen = 11 + 2 + (X * 3);
+	int AsciiLen = 11 + 2 + 48 + 2 + X;
+	if (!LineBuf)
+	{
+		LineBuf = s;
+		for (unsigned i=0; i<128; i++)
+			s[i] = ' ';
+	}
+	
+	{
+		GDisplayString ds(View->Font, LineBuf, HexLen);
+		XHexPx = ds.X();
+	}
+	{
+		GDisplayString ds(View->Font, LineBuf, AsciiLen);
+		XAsciiPx = ds.X();
+	}
+	
+	GRect &rcHex = Loc.New();
+	rcHex.ZOff((View->CharSize.x<<1), View->CharSize.y-1);
+	rcHex.Offset(XHexPx + Pos.x1, YPx + Pos.y1);
+
+	GRect &rcAscii = Loc.New();
+	rcAscii.ZOff(View->CharSize.x, View->CharSize.y-1);
+	rcAscii.Offset(XAsciiPx + Pos.x1, YPx + Pos.y1);
+	
+	return true;
+}
+
 void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 {
 	// First position the layout
@@ -700,7 +742,9 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 		*p++ = 0;
 
 		int CursorOff = -1;
-		if (View->Cursor.Index >= BufPos && View->Cursor.Index < BufPos + Bytes)
+		if (View->Cursor.Buf == this &&
+			View->Cursor.Index >= BufPos &&
+			View->Cursor.Index < BufPos + Bytes)
 		{
 			CursorOff = View->Cursor.Index - BufPos;
 			if ((CursorOff >= From) && (CursorOff < To))
@@ -800,12 +844,13 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 		if (CursorOff >= 0)
 		{
 			// Draw cursor
-			View->GetLocationOfByte(View->Cursor.Pos, View->Cursor.Index, Wide);
+			GetLocationOfByte(View->Cursor.Pos, View->Cursor.Index, Wide);
 
 			pDC->Colour(View->Focus() ? LC_TEXT : LC_LOW, 24);
 			for (unsigned i=0; i<View->Cursor.Pos.Length(); i++)
 			{
 				GRect r = View->Cursor.Pos[i];
+				
 				r.y1 = r.y2;
 				if (i == 0)
 				{
@@ -1205,8 +1250,8 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 			// Deselecting
 			
 			// Repaint the entire selection area...
-			GetLocationOfByte(NewLoc, Cursor.Index, NULL);
-			GetLocationOfByte(OldLoc, Selection.Index, NULL);
+			b->GetLocationOfByte(NewLoc, Cursor.Index, NULL);
+			b->GetLocationOfByte(OldLoc, Selection.Index, NULL);
 			InvalidateLines(NewLoc, OldLoc);
 			
 			SelectionEnding = true;
@@ -1215,7 +1260,7 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 	}
 
 	if (!SelectionEnding)
-		GetLocationOfByte(OldLoc, Cursor.Index, NULL);
+		b->GetLocationOfByte(OldLoc, Cursor.Index, NULL);
 	// else the selection just ended and the old cursor location just got repainted anyway
 
 	// Limit to doc
@@ -1269,7 +1314,7 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 		
 		Cursor.Flash = true;
 
-		GetLocationOfByte(NewLoc, Cursor.Index, NULL);
+		b->GetLocationOfByte(NewLoc, Cursor.Index, NULL);
 		if (!SelectionChanging)
 		{
 			// Just update the cursor's old and new locations
@@ -1285,7 +1330,7 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 	if (SelectionChanging)
 	{
 		if (!NewLoc.Length())
-			GetLocationOfByte(NewLoc, Cursor.Index, NULL);
+			b->GetLocationOfByte(NewLoc, Cursor.Index, NULL);
 		InvalidateLines(NewLoc, OldLoc);
 	}
 
@@ -1614,6 +1659,18 @@ bool FileToArray(GArray<uint8> &a, const char *File)
 
 void GHexView::CompareFile(char *CmpFile)
 {
+	if (FileExists(CmpFile))
+	{
+		GAutoPtr<GHexBuffer> b(new GHexBuffer(this));
+		if (b)
+		{
+			if (b->Open(CmpFile, false))
+			{
+				Buf.Add(b.Release());
+				Invalidate();
+			}
+		}
+	}
 }
 
 bool GHexView::CreateFile(int64 Len)
@@ -1667,32 +1724,18 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 		Empty();
 
 		GAutoPtr<GHexBuffer> b(new GHexBuffer(this));
-		if (FileExists(FileName) && b)
+		if (b)
 		{
-			b->File = new GFile;
-			if (b->File)
+			if (b->Open(FileName, ReadOnly))
 			{
-				if (!b->File->Open(FileName, ReadOnly ? O_READ : O_READWRITE))
-				{
-					if (!ReadOnly && b->File->Open(FileName, O_READ))
-						b->IsReadOnly = true;
-				}
-				else
-					b->IsReadOnly = false;
-
-				if (b->File->IsOpen())
-				{
-					Focus(true);
-					b->Size = b->File->GetSize();
-					SetCursor(b, 0);
-					Buf[0] = b.Release();
-
-					Status = true;
-				}
-				else
-				{
-					LgiMsg(this, "Couldn't open '%s' for reading.", AppName, MB_OK, FileName);
-				}
+				Focus(true);
+				SetCursor(b, 0);
+				Buf[0] = b.Release();
+				Status = true;
+			}
+			else
+			{
+				LgiMsg(this, "Couldn't open '%s' for reading.", AppName, MB_OK, FileName);
 			}
 		}
 
@@ -1897,56 +1940,20 @@ void GHexView::OnPulse()
 	InvalidateCursor();
 }
 
-bool GHexView::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf)
-{
-	if (Offset < 0)
-		return false;
-
-	int64 X = Offset % BytesPerLine;
-	int64 Y = Offset / BytesPerLine;
-	
-	int64 YPos = VScroll ? VScroll->Value() : 0;
-	int64 YPx = (Y - YPos) * CharSize.y;
-	int64 XHexPx = 0, XAsciiPx = 0;
-	
-	char16 s[128];
-	int HexLen = 11 + 2 + (X * 3);
-	int AsciiLen = 11 + 2 + 48 + 2 + X;
-	if (!LineBuf)
-	{
-		LineBuf = s;
-		for (unsigned i=0; i<128; i++)
-			s[i] = ' ';
-	}
-	
-	{
-		GDisplayString ds(Font, LineBuf, HexLen);
-		XHexPx = ds.X();
-	}
-	{
-		GDisplayString ds(Font, LineBuf, AsciiLen);
-		XAsciiPx = ds.X();
-	}
-	
-	GRect &rcHex = Loc.New();
-	rcHex.ZOff((CharSize.x<<1), CharSize.y-1);
-	rcHex.Offset(XHexPx, YPx);
-
-	GRect &rcAscii = Loc.New();
-	rcAscii.ZOff(CharSize.x, CharSize.y-1);
-	rcAscii.Offset(XAsciiPx, YPx);
-	
-	return true;
-}
-
 void GHexView::OnPaint(GSurface *pDC)
 {
-	GRect r = GetClient();
+	GRect Cli = GetClient();
+	GRect r = Cli;
 
 	#if DEBUG_COVERAGE_CHECK
 	pDC->Colour(GColour(255, 0, 255));
 	pDC->Rectangle();
 	#endif
+
+	if (Buf.Length() > 1)
+	{
+		r.y1 += (int) (SysBold->GetHeight() * 1.5);
+	}
 
 	int64 YPos = VScroll ? VScroll->Value() : 0;
 	int64 Start = YPos * BytesPerLine;
@@ -1992,11 +1999,11 @@ void GHexView::OnPaint(GSurface *pDC)
 	{
 		GHexBuffer *b = Buf[BufIdx];
 		b->Pos.ZOff(Columns * CharSize.x, Lines * CharSize.y);
-		b->Pos.Offset(HEX_COLUMN * CharSize.x, 0);
+		b->Pos.Offset(r.x1 + (HEX_COLUMN * CharSize.x), r.y1);
 		if (BufIdx)
 			b->Pos.Offset
 			(
-				(BufIdx - 1)
+				BufIdx
 				*
 				(Columns + GAP_FILES)
 				*
@@ -2039,27 +2046,41 @@ bool GHexView::OnMouseWheel(double Lines)
 bool GHexView::GetCursorFromLoc(int x, int y, GHexCursor &c)
 {
 	uint64 Start = ((uint64)(VScroll ? VScroll->Value() : 0)) * BytesPerLine;
-	GRect cli = GetClient();
+	int HexCols = BytesPerLine * 3;
+	int AsciiCols = HexCols + GAP_HEX_ASCII;
 
-	int _x1 = (((x - cli.x1) / CharSize.x) - HEX_COLUMN);
-	int _x2 = (((x - cli.x1) / CharSize.x) - TEXT_COLUMN);
-	int cx = _x1 / 3;
-	int n = _x1 % 3 > 0;
-	int cy = (y - cli.y1) / CharSize.y;
+	for (unsigned i=0; i<Buf.Length(); i++)
+	{
+		GHexBuffer *b = Buf[i];
+		if (b->Pos.Overlap(x, y))
+		{
+			int col = (x - b->Pos.x1) / CharSize.x;
+			int row = (y - b->Pos.y1) / CharSize.y;
 
-	if (cx >= 0 && cx < 16)
-	{
-		c.Index = Start + (cy * 16) + cx;
-		c.Nibble = n;
-		c.Pane = HexPane;
-		return true;
-	}
-	else if (_x2 >= 0 && _x2 < 16)
-	{
-		c.Index = Start + (cy * 16) + _x2;
-		c.Nibble = 0;
-		c.Pane = AsciiPane;
-		return true;
+			if (col >= 0 && col < HexCols)
+			{
+				int Byte = col / 3;
+				int Bit = col % 3;
+
+				c.Buf = b;
+				c.Index = Start + (row * BytesPerLine) + Byte;
+				c.Nibble = Bit > 0;
+				c.Pane = HexPane;
+				return true;
+			}
+			else if (col >= AsciiCols)
+			{
+				int Asc = col - AsciiCols;
+				if (Asc < BytesPerLine)
+				{
+					c.Buf = b;
+					c.Index = Start + (row * BytesPerLine) + Asc;
+					c.Nibble = 0;
+					c.Pane = AsciiPane;
+					return true;
+				}
+			}
+		}
 	}
 
 	return false;
@@ -2077,7 +2098,7 @@ void GHexView::OnMouseClick(GMouse &m)
 			GHexCursor c;
 			if (GetCursorFromLoc(m.x, m.y, c))
 			{
-				SetCursor(NULL, c.Index, c.Nibble, m.Shift());
+				SetCursor(c.Buf, c.Index, c.Nibble, m.Shift());
 			}
 		}
 	}
@@ -2090,7 +2111,7 @@ void GHexView::OnMouseMove(GMouse &m)
 		GHexCursor c;
 		if (GetCursorFromLoc(m.x, m.y, c))
 		{
-			SetCursor(NULL, c.Index, c.Nibble, true);
+			SetCursor(c.Buf, c.Index, c.Nibble, true);
 		}
 	}
 }
