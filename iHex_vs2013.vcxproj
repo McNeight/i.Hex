@@ -190,6 +190,7 @@
     <ClInclude Include="..\..\Lgi\trunk\include\common\GScripting.h" />
     <ClInclude Include="..\..\Lgi\trunk\src\common\Coding\GScriptingPriv.h" />
     <ClInclude Include="Code\iHex.h" />
+    <ClInclude Include="Code\iHexView.h" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="Code\iHex.manifest" />

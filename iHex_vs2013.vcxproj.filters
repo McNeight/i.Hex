@@ -74,6 +74,9 @@
     <ClInclude Include="..\..\Lgi\trunk\src\common\Coding\GScriptingPriv.h">
       <Filter>Source Files\Scripting</Filter>
     </ClInclude>
+    <ClInclude Include="Code\iHexView.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="Code\iHex.manifest">
