@@ -635,8 +635,8 @@ bool GHexBuffer::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char1
 	int64 XHexPx = 0, XAsciiPx = 0;
 	
 	char16 s[128];
-	int HexLen = 11 + 2 + (X * 3);
-	int AsciiLen = 11 + 2 + 48 + 2 + X;
+	int HexLen = X * 3;
+	int AsciiLen = (View->BytesPerLine * 3) + GAP_HEX_ASCII + X;
 	if (!LineBuf)
 	{
 		LineBuf = s;
@@ -675,7 +675,8 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 	char s[256] = {0};
 	COLOUR Fore[256];
 	COLOUR Back[256];
-
+	int EndY = Pos.y1 + (Lines * View->CharSize.y);
+	
 	for (int Line=0; Line<Lines; Line++)
 	{
 		int CurY = Pos.y1 + (Line * View->CharSize.y);
@@ -756,6 +757,13 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 		// Draw text
 		GFont *Font = View->Font;
 		Font->Colour(LC_TEXT, LC_WORKSPACE);
+		
+		bool SelectedBuf = View->Cursor.Buf == this;
+		GColour WkSp(LC_WORKSPACE, 24);
+		float Mix = 0.85f;
+		COLOUR SelectFore = SelectedBuf ? ColourSelectionFore : LC_TEXT;
+		COLOUR SelectBack = SelectedBuf ? ColourSelectionBack : GColour(ColourSelectionBack, 24).Mix(WkSp, Mix).c24();
+		
 		char16 *Wide = (char16*)LgiNewConvertCp(LGI_WideCharset, s, "iso-8859-1");
 		if (Wide)
 		{
@@ -781,13 +789,13 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 
 				for (i=s; i<=e; i++)
 				{
-					Fore[i] = ColourSelectionFore;
-					Back[i] = ColourSelectionBack;
+					Fore[i] = SelectFore;
+					Back[i] = SelectBack;
 				}
 				for (i=(s/3)+StartOfAscii; i<=(e/3)+StartOfAscii; i++)
 				{
-					Fore[i] = ColourSelectionFore;
-					Back[i] = ColourSelectionBack;
+					Fore[i] = SelectFore;
+					Back[i] = SelectBack;
 				}
 			}
 
@@ -871,6 +879,12 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 				pDC->Rectangle(&r);
 			}
 		}
+	}
+	
+	if (EndY < Pos.y2)
+	{
+		pDC->Colour(LC_WORKSPACE, 24);
+		pDC->Rectangle(Pos.x1, EndY, Pos.x2, Pos.y2);
 	}
 }
 
@@ -1136,16 +1150,17 @@ void GHexView::UpdateScrollBar()
 {
 	int Lines = GetClient().Y() / CharSize.y;
 	int64 DocLines = 0;
-	for (unsigned i = 0; i <Buf.Length(); i++)
+	for (unsigned i=0; i<Buf.Length(); i++)
 	{
-		GHexBuffer *b = Buf[0];
-		DocLines = MAX(DocLines, (b->Size + 15) / 16);
+		GHexBuffer *b = Buf[i];
+		int BufLines = (b->Size + 15) / 16;
+		DocLines = MAX(DocLines, BufLines);
 	}
 
 	SetScrollBars(false, DocLines > Lines);
 	if (VScroll)
 	{
-		VScroll->SetLimits(0, DocLines > 0 ? DocLines - 1 : 0);
+		VScroll->SetLimits(0, DocLines > 0 ? DocLines : 0);
 		VScroll->SetPage(Lines);
 	}
 }
@@ -1667,6 +1682,7 @@ void GHexView::CompareFile(char *CmpFile)
 			if (b->Open(CmpFile, false))
 			{
 				Buf.Add(b.Release());
+				UpdateScrollBar();
 				Invalidate();
 			}
 		}
@@ -1950,9 +1966,11 @@ void GHexView::OnPaint(GSurface *pDC)
 	pDC->Rectangle();
 	#endif
 
+	GRegion TopMargin;
 	if (Buf.Length() > 1)
 	{
 		r.y1 += (int) (SysBold->GetHeight() * 1.5);
+		TopMargin = GRect(0, 0, r.x2, r.y1-1);
 	}
 
 	int64 YPos = VScroll ? VScroll->Value() : 0;
@@ -2017,6 +2035,17 @@ void GHexView::OnPaint(GSurface *pDC)
 			pDC->Colour(LC_WORKSPACE, 24);
 			pDC->Rectangle(CurrentX + 1, r.y1, b->Pos.x1 - 1, r.y2);
 		}
+		
+		if (b->File)
+		{
+			SysBold->Transparent(false);
+			SysBold->Colour(LC_TEXT, LC_WORKSPACE);
+			GDisplayString Ds(SysBold, b->File->GetName());
+			Ds.Draw(pDC, b->Pos.x1, 0);
+
+			GRect r(b->Pos.x1, 0, b->Pos.x1+Ds.X()-1, Ds.Y()-1);
+			TopMargin.Subtract(&r);
+		}
 	
 		int64 End = min(b->Size, Start + (Lines * BytesPerLine));
 		if (b->GetData(Start, End-Start))
@@ -2030,6 +2059,12 @@ void GHexView::OnPaint(GSurface *pDC)
 		// Paint any whitespace after the last column
 		pDC->Colour(LC_WORKSPACE, 24);
 		pDC->Rectangle(CurrentX + 1, r.y1, r.x2, r.y2);
+	}
+	if (TopMargin.Length() > 0)
+	{
+		pDC->Colour(LC_WORKSPACE, 24);
+		for (unsigned i=0; i<TopMargin.Length(); i++)
+			pDC->Rectangle(TopMargin[i]);
 	}
 }
 
