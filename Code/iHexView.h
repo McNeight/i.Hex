@@ -112,7 +112,7 @@ public:
 
 	bool GetData(int64 Start, int Len);
 	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
-	void OnPaint(GSurface *pDC, int64 Start, int64 Len);
+	void OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Compare);
 };
 
 struct GHexCursor

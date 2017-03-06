@@ -654,60 +654,127 @@ bool GHexBuffer::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char1
 	}
 	
 	GRect &rcHex = Loc.New();
-	rcHex.ZOff((View->CharSize.x<<1), View->CharSize.y-1);
+	rcHex.ZOff((View->CharSize.x<<1) - 1, View->CharSize.y-1);
 	rcHex.Offset(XHexPx + Pos.x1, YPx + Pos.y1);
 
 	GRect &rcAscii = Loc.New();
-	rcAscii.ZOff(View->CharSize.x, View->CharSize.y-1);
+	rcAscii.ZOff(View->CharSize.x - 1, View->CharSize.y-1);
 	rcAscii.Offset(XAsciiPx + Pos.x1, YPx + Pos.y1);
 	
 	return true;
 }
 
-void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
+enum ColourFlags
+{
+	ForeCol = 0,
+	BackCol = 1,
+	SelectedCol = 2,
+	ChangedCol = 4,
+	CursorCol = 8,
+};
+
+void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Compare)
 {
 	// First position the layout
 	int BufOff = Start - BufPos;
 	int Bytes = MIN(Len, BufUsed - BufOff);
 	int Lines = (Bytes + View->BytesPerLine - 1) / View->BytesPerLine;
 
+	// Colour setup
+	bool SelectedBuf = View->Cursor.Buf == this;
+	GColour WkSp(LC_WORKSPACE, 24);
+	float Mix = 0.85f;
+	COLOUR Colours[16];
+	// memset(&Colours, 0xaa, sizeof(Colours));
+	Colours[ForeCol] = LC_TEXT;
+	Colours[BackCol] = LC_WORKSPACE;
+	Colours[ForeCol | SelectedCol] = SelectedBuf ? ColourSelectionFore : LC_TEXT;
+	Colours[BackCol | SelectedCol] = SelectedBuf ? ColourSelectionBack : GColour(ColourSelectionBack, 24).Mix(WkSp, Mix).c24();
+	Colours[ForeCol | ChangedCol] = LC_TEXT;
+	Colours[BackCol | ChangedCol] = Rgb24(239, 203, 5);
+	Colours[ForeCol | ChangedCol | SelectedCol] = GColour(Colours[ForeCol | SelectedCol], 24).Mix(GColour(Colours[ForeCol | ChangedCol], 24)).c24();
+	Colours[BackCol | ChangedCol | SelectedCol] = GColour(Colours[BackCol | SelectedCol], 24).Mix(GColour(Colours[BackCol | ChangedCol], 24)).c24();
+	Colours[ForeCol | CursorCol] = LC_TEXT;
+	Colours[BackCol | CursorCol] = Rgb24(192, 192, 192);
+	for (int i = 10; i < 16; i++)
+	{
+		GColour a(Colours[i - 8], 24), b;
+		if (a.GetGray() > 0x80)
+			b = GColour::Black.Mix(a, 0.75);
+		else 
+			b = GColour::White.Mix(a, 0.5);
+		Colours[i | CursorCol] = b.c24();
+	}
+
+	#if 0
+	static bool First = true;
+	if (First)
+	{
+		First = false;
+		for (int i=0; i<CountOf(Colours); i++)
+		{
+			LgiTrace("%i: %s %s %s %s = <div style='background:#%02.2x%02.2x%02.2x;width: 50px'>&nbsp;</div><br>\n",
+				i,
+				i & BackCol ? "Back" : "Fore",
+				i & SelectedCol ? "Selected" : "Unselected",
+				i & ChangedCol ? "Changed" : "Unchanged",
+				i & CursorCol ? "Cursor" : "NonCursor",
+				R24(Colours[i]),
+				G24(Colours[i]),
+				B24(Colours[i]));
+		}
+	}
+	#endif
+
+		
 	// Now draw the layout data
 	char s[256] = {0};
-	COLOUR Fore[256];
-	COLOUR Back[256];
+	uint8 ForeFlags[256];
+	uint8 BackFlags[256];
 	int EndY = Pos.y1 + (Lines * View->CharSize.y);
+	EndY = MAX(EndY, Pos.y1);
 	
 	for (int Line=0; Line<Lines; Line++)
 	{
 		int CurY = Pos.y1 + (Line * View->CharSize.y);
 		int Ch = 0;
 		int64 LineStart = BufOff + (Line * View->BytesPerLine);
+		
+		// Setup comparison stuff
+		uint8 *CompareBuf = NULL;
+		int CompareLen = 0;
+		if (Compare &&
+			Compare->GetData(LineStart, View->BytesPerLine))
+		{
+			CompareBuf = Compare->Buf + (LineStart - Compare->BufPos);
+			CompareLen = View->BytesPerLine;
+		}
 			
 		// Clear the colours for this line
-		int i;
-		for (i=0; i<CountOf(Back); i++)
-		{
-			Fore[i] = LC_TEXT;
-			Back[i] = LC_WORKSPACE;
-		}
+		memset(&ForeFlags, ForeCol, sizeof(ForeFlags));
+		memset(&BackFlags, BackCol, sizeof(BackFlags));
 
 		// Print the hex bytes to the line
 		int64 n;
-		int64 From = BufOff + (Line * View->BytesPerLine), To = From + View->BytesPerLine;
+		int64 FromStart = BufOff + (Line * View->BytesPerLine);
+		int64 From = FromStart, To = FromStart + View->BytesPerLine;
 		for (n=From; n<To; n++)
 		{
 			if (n < BufUsed)
 			{
-				Ch += sprintf_s(s + Ch, sizeof(s) - Ch, "%02.2X ", Buf[n]);
-				/*
-				if (!l.Same)
+				if (CompareBuf)
 				{
-					int k = p - s;
-					Back[k++] = ChangedFore.c24();
-					Back[k++] = ChangedFore.c24();
-					Back[k++] = ChangedFore.c24();
+					int64 Idx = From - FromStart;
+					if (Buf[n] != CompareBuf[Idx])
+					{
+						BackFlags[Ch] |= ChangedCol;
+						BackFlags[Ch+1] |= ChangedCol;
+						if (n < To-1)
+							BackFlags[Ch+2] |= ChangedCol;
+					}
 				}
-				*/
+
+				Ch += sprintf_s(s + Ch, sizeof(s) - Ch, "%02.2X ", Buf[n]);
 			}
 			else
 			{
@@ -726,13 +793,16 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 			if (n < BufUsed)
 			{
 				uchar c = Buf[n];
-				/*
-				if (!l.Same)
+
+				if (CompareBuf)
 				{
-					int k = p - s;
-					Back[k++] = ChangedFore.c24();
+					int64 Idx = From - FromStart;
+					if (Buf[n] != CompareBuf[Idx])
+					{
+						BackFlags[p - s] |= ChangedCol;
+					}
 				}
-				*/
+
 				*p++ = (c >= ' ' && c < 0x7f) ? c : '.';
 			}
 			else
@@ -743,39 +813,36 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 		*p++ = 0;
 
 		int CursorOff = -1;
-		if (View->Cursor.Buf == this &&
-			View->Cursor.Index >= BufPos &&
-			View->Cursor.Index < BufPos + Bytes)
+		if (View->Cursor.Buf == this)
 		{
-			CursorOff = View->Cursor.Index - BufPos;
-			if ((CursorOff >= From) && (CursorOff < To))
-				CursorOff -= From;
-			else
-				CursorOff = -1;
+			if (View->Cursor.Index >= BufPos &&
+				View->Cursor.Index < BufPos + BufUsed)
+			{
+				CursorOff = View->Cursor.Index - BufPos;
+				if ((CursorOff >= From) && (CursorOff < To))
+					CursorOff -= From;
+				else
+					CursorOff = -1;
+			}
 		}
 
 		// Draw text
 		GFont *Font = View->Font;
 		Font->Colour(LC_TEXT, LC_WORKSPACE);
 		
-		bool SelectedBuf = View->Cursor.Buf == this;
-		GColour WkSp(LC_WORKSPACE, 24);
-		float Mix = 0.85f;
-		COLOUR SelectFore = SelectedBuf ? ColourSelectionFore : LC_TEXT;
-		COLOUR SelectBack = SelectedBuf ? ColourSelectionBack : GColour(ColourSelectionBack, 24).Mix(WkSp, Mix).c24();
-		
 		char16 *Wide = (char16*)LgiNewConvertCp(LGI_WideCharset, s, "iso-8859-1");
 		if (Wide)
 		{
 			// Paint the selection into the colour buffers
+			int64 DocPos = BufPos + LineStart;
 			int64 Min = View->HasSelection() ? min(View->Selection.Index, View->Cursor.Index) : -1;
 			int64 Max = View->HasSelection() ? max(View->Selection.Index, View->Cursor.Index) : -1;
-			if (Min < LineStart + View->BytesPerLine &&
-				Max >= LineStart)
+			if (Min < DocPos + View->BytesPerLine &&
+				Max >= DocPos)
 			{
 				// Part or all of this line is selected
-				int64 s = ((View->Selection.Index - LineStart) * 3) + View->Selection.Nibble;
-				int64 e = ((View->Cursor.Index - LineStart) * 3) + View->Cursor.Nibble;
+				int64 s = ((View->Selection.Index - DocPos) * 3) + View->Selection.Nibble;
+				int64 e = ((View->Cursor.Index - DocPos) * 3) + View->Cursor.Nibble;
 				if (s > e)
 				{
 					int64 i = s;
@@ -787,37 +854,37 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 				if (e > View->BytesPerLine * 3 - 2)
 					e = View->BytesPerLine * 3 - 2;
 
-				for (i=s; i<=e; i++)
+				for (int i=s; i<=e; i++)
 				{
-					Fore[i] = SelectFore;
-					Back[i] = SelectBack;
+					ForeFlags[i] |= SelectedCol;
+					BackFlags[i] |= SelectedCol;
 				}
-				for (i=(s/3)+StartOfAscii; i<=(e/3)+StartOfAscii; i++)
+				for (int i=(s/3)+StartOfAscii; i<=(e/3)+StartOfAscii; i++)
 				{
-					Fore[i] = SelectFore;
-					Back[i] = SelectBack;
+					ForeFlags[i] |= SelectedCol;
+					BackFlags[i] |= SelectedCol;
 				}
 			}
 
 			// Colour the back of the cursor gray...
-			if (CursorOff >= 0 && View->Selection.Index < 0 && View->Cursor.Flash)
+			if (CursorOff >= 0 && /*View->Selection.Index < 0 && */View->Cursor.Flash)
 			{
-				Back[(CursorOff * 3) + View->Cursor.Nibble] = CursorColourBack;
-				Back[StartOfAscii + CursorOff] = CursorColourBack;
+				BackFlags[(CursorOff * 3) + View->Cursor.Nibble] |= CursorCol;
+				BackFlags[StartOfAscii + CursorOff] |= CursorCol;
 			}
 
 			// Go through the colour buffers, painting in runs of similar colour
 			GRect r;
 			int CxF = Pos.x1 << GDisplayString::FShift;
 			int Len = p - s;
-			for (i=0; i<Len; )
+			for (int i=0; i<Len; )
 			{
 				// Find the end of the similarly coloured region...
 				int e = i;
 				while (e < Len)
 				{
-					if (Fore[e] != Fore[i] ||
-						Back[e] != Back[i])
+					if (ForeFlags[e] != ForeFlags[i] ||
+						BackFlags[e] != BackFlags[i])
 						break;
 					e++;
 				}
@@ -831,7 +898,7 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 				r.x2 = CxF + Str.FX();
 				r.y2 = (CurY + Str.Y()) << GDisplayString::FShift;
 					
-				Font->Colour(Fore[i], Back[i]);
+				Font->Colour(Colours[ForeFlags[i]], Colours[BackFlags[i]]);
 					
 				Str.FDraw(pDC, CxF, CurY<<GDisplayString::FShift, &r);
 					
@@ -858,7 +925,8 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 			for (unsigned i=0; i<View->Cursor.Pos.Length(); i++)
 			{
 				GRect r = View->Cursor.Pos[i];
-				
+				LgiTrace("%i = %s\n", i, r.GetStr());
+
 				r.y1 = r.y2;
 				if (i == 0)
 				{
@@ -883,8 +951,9 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len)
 	
 	if (EndY < Pos.y2)
 	{
+		GRect r(Pos.x1, EndY, Pos.x2, Pos.y2);
 		pDC->Colour(LC_WORKSPACE, 24);
-		pDC->Rectangle(Pos.x1, EndY, Pos.x2, Pos.y2);
+		pDC->Rectangle(&r);
 	}
 }
 
@@ -2041,15 +2110,17 @@ void GHexView::OnPaint(GSurface *pDC)
 			SysBold->Transparent(false);
 			SysBold->Colour(LC_TEXT, LC_WORKSPACE);
 			GDisplayString Ds(SysBold, b->File->GetName());
-			Ds.Draw(pDC, b->Pos.x1, 0);
-
 			GRect r(b->Pos.x1, 0, b->Pos.x1+Ds.X()-1, Ds.Y()-1);
+			Ds.Draw(pDC, r.x1, r.y1);
 			TopMargin.Subtract(&r);
 		}
 	
 		int64 End = min(b->Size, Start + (Lines * BytesPerLine));
 		if (b->GetData(Start, End-Start))
-			b->OnPaint(pDC, Start, End - Start);
+		{
+			GHexBuffer *Comp = Buf.Length() > 1 ? Buf[!BufIdx] : NULL;
+			b->OnPaint(pDC, Start, End - Start, Comp);
+		}
 
 		CurrentX = b->Pos.x2;
 	}
@@ -2062,9 +2133,12 @@ void GHexView::OnPaint(GSurface *pDC)
 	}
 	if (TopMargin.Length() > 0)
 	{
-		pDC->Colour(LC_WORKSPACE, 24);
 		for (unsigned i=0; i<TopMargin.Length(); i++)
-			pDC->Rectangle(TopMargin[i]);
+		{
+			GRect *r = TopMargin[i];
+			pDC->Colour(LC_WORKSPACE, 24);
+			pDC->Rectangle(r);
+		}
 	}
 }
 
