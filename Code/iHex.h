@@ -130,6 +130,7 @@ public:
 	bool ForHex;
 	bool MatchWord;
 	bool MatchCase;
+	bool SearchUp;
 	
 	uchar *Bin;
 	int Length;

@@ -28,6 +28,7 @@ public:
 	int64 Size;
 	int Used;
 	bool IsReadOnly;	// Data is read only
+	bool IsDirty;
 
 	// Buffer
 	uchar *Buf;			// Buffer for data from the file
@@ -49,6 +50,7 @@ public:
 		BufPos = 0;
 		Size = 0;
 		Used = 0;
+		IsDirty = false;
 		IsReadOnly = false;
 	}
 
@@ -60,9 +62,30 @@ public:
 	int64 SetSize(int64 sz)
 	{
 		if (File)
+		{
 			Size = File->SetSize(sz);
-		else
+		}
+		else // Memory buffer... resize the memory
+		{
+			int64 Common = MIN(Size, sz);
+			uchar *NewBuf = new uchar[sz];
+			if (!NewBuf)
+			{
+				return -1;
+			}
+
+			if (Common)
+				memcpy(NewBuf, Buf, Common);
+			if (Common < sz)
+				memset(NewBuf+Common, 0, sz - Common);
+
+			delete [] Buf;
+
+			Buf = NewBuf;
+			BufUsed = sz;
+			BufLen = sz;
 			Size = sz;
+		}
 
 		return Size;
 	}
@@ -110,6 +133,7 @@ public:
 			(Buf != 0 &&  BufUsed > 0);
 	}
 
+	void SetDirty(bool Dirty = true);
 	bool GetData(int64 Start, int Len);
 	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
 	void OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Compare);
@@ -196,6 +220,7 @@ class GHexView : public GLayout
 	GHexCursor Cursor, Selection;
 
 	void SwapBytes(void *p, int Len);
+	void InvalidateByte(int64 Idx);
 
 public:
 	GHexView(AppWnd *app, IHexBar *bar);

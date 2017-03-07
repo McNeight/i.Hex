@@ -8,11 +8,13 @@ SearchDlg::SearchDlg(AppWnd *app)
 	ForHex = false;
 	MatchWord = false;
 	MatchCase = false;
+	SearchUp = false;
 	Bin = 0;
 	Length = 0;
 
 	if (LoadFromResource(IDD_SEARCH))
 	{
+		SetCtrlValue(IDC_SEARCH_TXT, 1);
 		MoveToCenter();
 	}
 }
@@ -34,19 +36,20 @@ int SearchDlg::OnNotify(GViewI *c, int f)
 	{
 		case IDC_TEXT:
 		{
-			SetCtrlValue(IDC_FOR, 0);
+			SetCtrlValue(IDC_SEARCH_TXT, 1);
 			break;
 		}
 		case IDC_HEX:
 		{
-			SetCtrlValue(IDC_FOR, 1);
+			SetCtrlValue(IDC_SEARCH_HEX, 1);
 			break;
 		}
 		case IDOK:
 		{
-			ForHex = GetCtrlValue(IDC_FOR);
+			ForHex = GetCtrlValue(IDC_SEARCH_HEX) != 0;
 			MatchWord = GetCtrlValue(IDC_MATCH_WORD);
 			MatchCase = GetCtrlValue(IDC_MATCH_CASE);
+			SearchUp = GetCtrlValue(IDC_SEARCH_UP);
 
 			char *Str = GetCtrlName(ForHex ? IDC_HEX : IDC_TEXT);
 			if (Str)

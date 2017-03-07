@@ -16,15 +16,15 @@
 		<String Ref="13" Cid="2" Define="IDCANCEL" en="Cancel" />
 		<String Ref="14" Cid="14" Define="IDC_BYTE_SIZE" en="..." />
 		<String Ref="15" Cid="15" Define="IDD_SEARCH" en="Search" />
-		<String Ref="16" Cid="16" Define="IDC_FOR" en="For:" />
-		<String Ref="17" Cid="17" Define="IDS_17" en="Text:" />
-		<String Ref="18" Cid="18" Define="IDS_18" en="Hex:" />
-		<String Ref="19" Cid="19" Define="IDC_TEXT" />
-		<String Ref="20" Cid="20" Define="IDC_MATCH_CASE" en="Match case" />
-		<String Ref="21" Cid="21" Define="IDC_MATCH_WORD" en="Match whole word only" />
-		<String Ref="22" Cid="22" Define="IDC_HEX" />
-		<String Ref="23" Cid="1" Define="IDOK" en="Search" />
-		<String Ref="24" Cid="2" Define="IDCANCEL" en="Cancel" />
+		<String Ref="16" Cid="16" Define="IDC_16" />
+		<String Ref="17" Cid="18" Define="IDC_SEARCH_HEX" en="Hex:" />
+		<String Ref="18" Cid="17" Define="IDC_SEARCH_TXT" en="Text:" />
+		<String Ref="19" Cid="1" Define="IDOK" en="Search" />
+		<String Ref="20" Cid="19" Define="IDC_TEXT" />
+		<String Ref="21" Cid="20" Define="IDC_MATCH_CASE" en="Match case" />
+		<String Ref="22" Cid="21" Define="IDC_MATCH_WORD" en="Match whole word only" />
+		<String Ref="23" Cid="2" Define="IDCANCEL" en="Cancel" />
+		<String Ref="24" Cid="24" Define="IDC_SEARCH_UP" en="Search Up" />
 		<String Ref="25" Cid="501" Define="IDC_DEC_1" />
 		<String Ref="26" Cid="502" Define="IDC_HEX_1" />
 		<String Ref="27" Cid="-1" Define="IDC_STATIC" en="2" />
@@ -48,6 +48,10 @@
 		<String Ref="45" Cid="45" Define="IDC_BIT2" />
 		<String Ref="46" Cid="46" Define="IDC_BIT1" />
 		<String Ref="47" Cid="47" Define="IDC_BIT0" />
+		<String Ref="78" Cid="22" Define="IDC_HEX" />
+	</string-group>
+	<string-group Name="General Strings">
+		<String Ref="81" Cid="81" Define="IDS_UNTITLED_BUFFER" en="(untitled buffer)" />
 	</string-group>
 	<Dialog pos="7,7,307,129" ref="8">
 		<StaticText pos="14,14,83,27" ref="9" />
@@ -89,17 +93,50 @@
 		<Custom pos="7,35,510,370" ref="38" Ctrl="GTextView3" />
 		<StaticText pos="7,14,118,27" ref="35" />
 	</Dialog>
-	<Dialog pos="7,7,424,205" ref="15">
-		<Group pos="7,7,398,139" ref="16">
-			<RadioBox pos="14,21,62,34" ref="17" />
-			<EditBox Pos="98,14,377,34" ref="19" />
-			<CheckBox pos="98,42,377,55" ref="20" />
-			<CheckBox pos="98,63,377,76" ref="21" />
-			<RadioBox pos="14,105,76,118" ref="18" />
-			<EditBox Pos="98,98,377,118" ref="22" />
-		</Group>
-		<Button pos="280,147,335,167" ref="23" />
-		<Button pos="343,147,398,167" ref="24" />
+	<Dialog pos="7,7,407,234" ref="15">
+		<TableLayout pos="7,7,384,188" ref="16" cols="0.500,0.500" rows="0.167,0.167,0.167,0.167,0.167,0.167">
+			<tr>
+				<td>
+					<RadioBox pos="0,0,48,13" ref="18" />
+				</td>
+				<td>
+					<EditBox Pos="183,0,364,20" ref="20" />
+				</td>
+			</tr>
+			<tr>
+				<td />
+				<td>
+					<CheckBox pos="196,35,363,48" ref="21" />
+				</td>
+			</tr>
+			<tr>
+				<td />
+				<td>
+					<CheckBox pos="196,63,363,76" ref="22" />
+				</td>
+			</tr>
+			<tr>
+				<td />
+				<td>
+					<CheckBox pos="196,91,286,104" ref="24" />
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<RadioBox pos="0,112,62,125" ref="17" />
+				</td>
+				<td>
+					<EditBox Pos="183,112,364,132" ref="78" />
+				</td>
+			</tr>
+			<tr>
+				<td />
+				<td align="Max">
+					<Button pos="189,144,244,164" ref="19" />
+					<Button pos="252,144,307,164" ref="23" />
+				</td>
+			</tr>
+		</TableLayout>
 	</Dialog>
 	<menu Name="IDM_MENU">
 		<string-group Name="&lt;untitled&gt;">
@@ -133,8 +170,12 @@
 			<String Ref="75" Cid="509" Define="IDM_MENU_509" />
 			<String Ref="76" Cid="510" Define="IDM_SEARCH" en="&Find" />
 			<String Ref="77" Cid="517" Define="IDM_NEXT" en="&Next" />
+			<String Ref="79" Cid="533" Define="IDM_NEW_BUFFER" en="&New Buffer" />
+			<String Ref="80" Cid="534" Define="IDM_MENU_534" />
 		</string-group>
 		<submenu Ref="48">
+			<menuitem Ref="79" Shortcut="Ctrl+N" />
+			<menuitem Sep="1" />
 			<menuitem Ref="49" Shortcut="Ctrl+O" />
 			<menuitem Ref="50" Shortcut="Ctrl+S" />
 			<menuitem Ref="51" Shortcut="Ctrl+W" />

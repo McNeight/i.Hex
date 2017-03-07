@@ -11,13 +11,14 @@
 #define IDC_UNITS								11
 #define IDC_BYTE_SIZE							14
 #define IDD_SEARCH								15
-#define IDC_FOR									16
-#define IDS_17									17
-#define IDS_18									18
+#define IDC_16									16
+#define IDC_SEARCH_TXT							17
+#define IDC_SEARCH_HEX							18
 #define IDC_TEXT								19
 #define IDC_MATCH_CASE							20
 #define IDC_MATCH_WORD							21
 #define IDC_HEX									22
+#define IDC_SEARCH_UP							24
 #define IDD_MAP_EDIT							34
 #define IDC_NAME								36
 #define IDC_VISUALISER_HELP						39
@@ -29,6 +30,7 @@
 #define IDC_BIT2								45
 #define IDC_BIT1								46
 #define IDC_BIT0								47
+#define IDS_UNTITLED_BUFFER						81
 #define IDC_ASC_1								500
 #define IDC_DEC_1								501
 #define IDC_HEX_1								502
@@ -62,6 +64,8 @@
 #define IDM_HELP								530
 #define IDM_MENU_531							531
 #define IDM_ABOUT								532
+#define IDM_NEW_BUFFER							533
+#define IDM_MENU_534							534
 #define IDM_OPEN								15000
 #define IDM_SAVE								15002
 #define IDM_CLOSE								15003

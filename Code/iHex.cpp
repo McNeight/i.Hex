@@ -557,6 +557,18 @@ int IHexBar::OnNotify(GViewI *c, int f)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////
+void GHexBuffer::SetDirty(bool Dirty)
+{
+	if (IsDirty ^ Dirty)
+	{
+		IsDirty = Dirty;
+		if (Dirty)
+		{
+			View->App->SetDirty(true);
+		}
+	}
+}
+
 bool GHexBuffer::GetData(int64 Start, int Len)
 {
 	static bool IsAsking = false;
@@ -764,7 +776,7 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 			{
 				if (CompareBuf)
 				{
-					int64 Idx = From - FromStart;
+					int64 Idx = n - FromStart;
 					if (Buf[n] != CompareBuf[Idx])
 					{
 						BackFlags[Ch] |= ChangedCol;
@@ -796,7 +808,7 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 
 				if (CompareBuf)
 				{
-					int64 Idx = From - FromStart;
+					int64 Idx = n - FromStart;
 					if (Buf[n] != CompareBuf[Idx])
 					{
 						BackFlags[p - s] |= ChangedCol;
@@ -925,7 +937,6 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 			for (unsigned i=0; i<View->Cursor.Pos.Length(); i++)
 			{
 				GRect r = View->Cursor.Pos[i];
-				LgiTrace("%i = %s\n", i, r.GetStr());
 
 				r.y1 = r.y2;
 				if (i == 0)
@@ -1037,13 +1048,13 @@ bool GHexView::SetFileSize(int64 size)
 	// Save any changes
 	if (App->SetDirty(false) &&
 		Buf.Length() &&
-		Buf[0])
+		Cursor.Buf)
 	{
-		Buf[0]->SetSize(size);
+		Cursor.Buf->SetSize(size);
 
-		int p = Buf[0]->BufPos;
-		Buf[0]->BufPos++;
-		Buf[0]->GetData(p, 1);
+		int p = Cursor.Buf->BufPos;
+		Cursor.Buf->BufPos++;
+		Cursor.Buf->GetData(p, 1);
 
 		UpdateScrollBar();
 		Invalidate();
@@ -1763,17 +1774,11 @@ bool GHexView::CreateFile(int64 Len)
 	if (!App->SetDirty(false))
 		return false;
 
-	while (Buf.Length() > 1)
-	{
-		DeleteObj(Buf.Last());
-		Buf.PopLast();
-	}
+	GHexBuffer *b = new GHexBuffer(this);
+	if (!b)
+		return false;
 
-	if (!Buf[0])
-		Buf[0] = new GHexBuffer(this);
-	
-	GHexBuffer *b = Buf[0];
-	b->Empty();
+	Buf.Add(b);
 	b->Buf = new uchar[b->BufLen = Len];
 	if (!b->Buf)
 	{
@@ -2059,11 +2064,12 @@ void GHexView::OnPaint(GSurface *pDC)
 	// Draw all the addresses
 	Font->Transparent(false);
 	Font->Colour(LC_TEXT, LC_WORKSPACE);
+	int CurrentY;
 	int CurrentX = 0;
 	for (int Line=0; Line<Addrs; Line++)
 	{
-		int CurY = r.y1 + (Line * CharSize.y);
-		if (CurY > r.y2)
+		CurrentY = r.y1 + (Line * CharSize.y);
+		if (CurrentY > r.y2)
 			break;
 		int64 LineAddr = Start + (Line * BytesPerLine);
 			
@@ -2077,8 +2083,14 @@ void GHexView::OnPaint(GSurface *pDC)
 			p.Printf("%11.11lli  ", LineAddr);
 			#endif
 		GDisplayString ds(Font, p);
-		ds.Draw(pDC, r.x1, CurY);
+		ds.Draw(pDC, r.x1, CurrentY);
 		CurrentX = ds.X();
+	}
+	CurrentY += CharSize.y;
+	if (CurrentY < r.y2)
+	{
+		pDC->Colour(LC_WORKSPACE, 24);
+		pDC->Rectangle(r.x1, CurrentY, CurrentX-1, r.y2);
 	}
 
 	// Draw all the data buffers...
@@ -2105,15 +2117,12 @@ void GHexView::OnPaint(GSurface *pDC)
 			pDC->Rectangle(CurrentX + 1, r.y1, b->Pos.x1 - 1, r.y2);
 		}
 		
-		if (b->File)
-		{
-			SysBold->Transparent(false);
-			SysBold->Colour(LC_TEXT, LC_WORKSPACE);
-			GDisplayString Ds(SysBold, b->File->GetName());
-			GRect r(b->Pos.x1, 0, b->Pos.x1+Ds.X()-1, Ds.Y()-1);
-			Ds.Draw(pDC, r.x1, r.y1);
-			TopMargin.Subtract(&r);
-		}
+		SysBold->Transparent(false);
+		SysBold->Colour(LC_TEXT, LC_WORKSPACE);
+		GDisplayString Ds(SysBold, b->File ? b->File->GetName() : LgiLoadString(IDS_UNTITLED_BUFFER));
+		GRect r(b->Pos.x1, 0, b->Pos.x1+Ds.X()-1, Ds.Y()-1);
+		Ds.Draw(pDC, r.x1, r.y1);
+		TopMargin.Subtract(&r);
 	
 		int64 End = min(b->Size, Start + (Lines * BytesPerLine));
 		if (b->GetData(Start, End-Start))
@@ -2207,7 +2216,9 @@ void GHexView::OnMouseClick(GMouse &m)
 			GHexCursor c;
 			if (GetCursorFromLoc(m.x, m.y, c))
 			{
+				int Idx = Buf.IndexOf(c.Buf);
 				SetCursor(c.Buf, c.Index, c.Nibble, m.Shift());
+				Cursor.Pane = c.Pane;
 			}
 		}
 	}
@@ -2220,6 +2231,12 @@ void GHexView::OnMouseMove(GMouse &m)
 		GHexCursor c;
 		if (GetCursorFromLoc(m.x, m.y, c))
 		{
+			if (c.Pane == AsciiPane &&
+				c.Index >= Cursor.Index)
+			{
+				c.Nibble = 1;
+			}
+
 			SetCursor(c.Buf, c.Index, c.Nibble, true);
 		}
 	}
@@ -2230,11 +2247,29 @@ void GHexView::OnFocus(bool f)
 	Invalidate();
 }
 
+void GHexView::InvalidateByte(int64 Idx)
+{
+	for (unsigned i=0; i<Buf.Length(); i++)
+	{
+		GHexBuffer *b = Buf[i];
+
+		GArray<GRect> Loc;
+		if (b->GetLocationOfByte(Loc, Idx, NULL))
+		{
+			Loc[0].x2 += CharSize.x;
+			for (unsigned i=0; i<Loc.Length(); i++)
+				Invalidate(&Loc[i]);
+		}
+	}
+}
+
 bool GHexView::OnKey(GKey &k)
 {
 	int Lines = GetClient().Y() / CharSize.y;
 	GHexBuffer *b = Cursor.Buf;
 
+	k.Trace("HexView");
+	
 	switch (k.vkey)
 	{
 		default:
@@ -2262,16 +2297,12 @@ bool GHexView::OnKey(GKey &k)
 								*Byte = (c << 4) | (*Byte & 0xf);
 							}
 
-							App->SetDirty(true);
-
+							b->SetDirty();
+							InvalidateByte(Cursor.Index);
 							if (Cursor.Nibble == 0)
-							{
 								SetCursor(b, Cursor.Index, 1);
-							}
 							else if (Cursor.Index < b->Size - 1)
-							{
 								SetCursor(b, Cursor.Index+1, 0);
-							}
 						}
 					}
 					else if (Cursor.Pane == AsciiPane)
@@ -2280,8 +2311,9 @@ bool GHexView::OnKey(GKey &k)
 
 						*Byte =  k.c16;
 
-						App->SetDirty(true);
-						
+						InvalidateByte(Cursor.Index);
+
+						b->SetDirty();
 						SetCursor(b, Cursor.Index + 1);
 					}
 				}
@@ -2454,7 +2486,7 @@ bool GHexView::OnKey(GKey &k)
 		}
 		case VK_BACKSPACE:
 		{
-			if (b && k.Down())
+			if (b && k.Down() && !k.IsChar)
 			{
 				if (Cursor.Pane == HexPane)
 				{
@@ -2896,6 +2928,13 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 			LgiCloseApp();
 			break;
 		}
+		case IDM_NEW_BUFFER:
+		{
+			if (!Doc)
+				break;
+			Doc->CreateFile(256);
+			break;
+		}
 		case IDM_CLOSE:
 		{
 			if (Doc)
@@ -2965,12 +3004,16 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 		}
 		case IDM_CHANGE_SIZE:
 		{
-			if (Doc && Doc->HasFile())
+			if (Doc)
 			{
-				ChangeSizeDlg Dlg(this, Doc->GetFileSize());
-				if (Dlg.DoModal())
+				GHexBuffer *Cur = Doc->GetCursorBuffer();
+				if (Cur)
 				{
-					Doc->SetFileSize(Dlg.Size);
+					ChangeSizeDlg Dlg(this, Cur->Size);
+					if (Dlg.DoModal())
+					{
+						Doc->SetFileSize(Dlg.Size);
+					}
 				}
 			}
 			break;
