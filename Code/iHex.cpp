@@ -2064,7 +2064,7 @@ void GHexView::OnPaint(GSurface *pDC)
 	// Draw all the addresses
 	Font->Transparent(false);
 	Font->Colour(LC_TEXT, LC_WORKSPACE);
-	int CurrentY;
+	int CurrentY = 0;
 	int CurrentX = 0;
 	for (int Line=0; Line<Addrs; Line++)
 	{
@@ -2086,7 +2086,8 @@ void GHexView::OnPaint(GSurface *pDC)
 		ds.Draw(pDC, r.x1, CurrentY);
 		CurrentX = ds.X();
 	}
-	CurrentY += CharSize.y;
+	if (Addrs)
+		CurrentY += CharSize.y;
 	if (CurrentY < r.y2)
 	{
 		pDC->Colour(LC_WORKSPACE, 24);
