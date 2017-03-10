@@ -2922,9 +2922,7 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 		case IDM_EXIT:
 		{
 			if (Doc)
-			{
-				Doc->OpenFile(0, false);
-			}
+				Doc->Empty();
 
 			LgiCloseApp();
 			break;

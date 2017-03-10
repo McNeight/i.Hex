@@ -1,13 +1,13 @@
 ; i.Hex install/uninstall support
 
-!system "mkdir ihex-setup"
-!system "del .\ihex-setup\*.*"
+; !system "mkdir ihex-setup"
+; !system "del .\ihex-setup\*.*"
 
-!system "copy ..\..\Lgi\trunk\Release\Lgi.dll ihex-setup"
-!system "copy .\Release\iHex.exe ihex-setup"
+; !system "copy ..\..\Lgi\trunk\Release\Lgi.dll ihex-setup"
+; !system "copy .\Release\iHex.exe ihex-setup"
 
-; system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
-; system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.dll'
+; !system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
+; !system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.dll'
 
 ;--------------------------------
 SetCompressor lzma
@@ -38,8 +38,8 @@ Section ""
   SetOutPath $INSTDIR
   
   ; Program files
-  File .\ihex-setup\iHex.exe
-  File .\ihex-setup\Lgi.dll
+  File .\Win32Release12\iHex.exe
+  File ..\..\Lgi\trunk\lib\Lgi12x32.dll
 
   ; Resources
   File .\Code\ihex.lr8
