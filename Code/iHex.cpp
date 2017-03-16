@@ -557,6 +557,32 @@ int IHexBar::OnNotify(GViewI *c, int f)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////
+bool GHexBuffer::Save()
+{
+	if (!File ||
+		!File->IsOpen())
+	{
+		LgiTrace("%s:%i - No open file.\n", _FL);
+		return false;
+	}
+
+	if (File->SetPos(BufPos) != BufPos)
+	{
+		LgiTrace("%s:%i - Failed to set pos: " LGI_PrintfInt64 ".\n", _FL, BufPos);
+		return false;
+	}
+
+	int Wr = File->Write(Buf, BufUsed);
+	if (Wr != BufUsed)
+	{
+		LgiTrace("%s:%i - Failed to write %i bytes: %i.\n", _FL, BufUsed, Wr);
+		return false;
+	}
+
+	IsDirty = false;
+	return true;
+}
+
 void GHexBuffer::SetDirty(bool Dirty)
 {
 	if (IsDirty ^ Dirty)
@@ -1847,6 +1873,40 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 	return Status;
 }
 
+bool GHexView::Save()
+{
+	bool Status = true;
+
+	// Save all buffers
+	for (unsigned i=0; i<Buf.Length(); i++)
+	{
+		GHexBuffer *b = Buf[i];
+		if (b->IsDirty ||
+			!b->File)
+		{
+			if (!b->File)
+			{
+				GFileSelect s;
+				s.Parent(this);
+				if (s.Save())
+				{
+					b->File = new GFile;
+					if (b->File && !b->File->Open(s.Name(), O_READWRITE))
+						DeleteObj(b->File);
+
+					App->SetCurFile(s.Name());
+				}
+				else Status = false;
+			}
+
+			b->Save();
+			b->SetDirty(false);
+		}
+	}
+
+	return Status;
+}
+
 bool GHexView::SaveFile(GHexBuffer *b, char *FileName)
 {
 	bool Status = false;
@@ -2915,8 +2975,8 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 		}
 		case IDM_SAVE:
 		{
-			_SaveFile(GetCurFile());
-			OnDirty(GetDirty());
+			if (Doc)
+				Doc->Save();
 			break;
 		}
 		case IDM_EXIT:

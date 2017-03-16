@@ -438,14 +438,16 @@ struct ConditionDef : public Member
 
 struct VarDef : public Member
 {
+	GDom *SMap;
 	VarDefType *Type;
 	char *Name;
 	GVariant Value;
 	bool Hidden;
 	bool Debug;
 
-	VarDef() : Member(MemberVar)
+	VarDef(GDom *smap) : Member(MemberVar)
 	{
+		SMap = smap;
 		Name = 0;
 		Hidden = false;
 		Debug = false;
@@ -488,10 +490,21 @@ struct VarDef : public Member
 			char *v = Value.Str();
 			if (strnicmp(v, "0x", 2) == 0)
 			{
+				// Hex value
 				Val = htoi(v + 2);
+			}
+			else if (IsAlpha(*v))
+			{
+				// #define?
+				GVariant vv;
+				if (!SMap->GetValue(v, vv))
+					return false;
+
+				Val = vv.CastInt32();
 			}
 			else
 			{
+				// Integer?
 				Val = Value.CastInt32();
 			}
 			return true;
@@ -504,7 +517,20 @@ struct VarDef : public Member
 	{
 		if (!Value.IsNull())
 		{
-			Val = Value.CastDouble();
+			char *v = Value.Str();
+			if (IsAlpha(*v))
+			{
+				// #define?
+				GVariant vv;
+				if (!SMap->GetValue(v, vv))
+					return false;
+
+				Val = vv.CastDouble();
+			}
+			else
+			{
+				Val = Value.CastDouble();
+			}
 			return true;
 		}
 
@@ -516,7 +542,20 @@ struct VarDef : public Member
 	{
 		if (!Value.IsNull())
 		{
-			Val = Value.CastDouble();
+			char *v = Value.Str();
+			if (IsAlpha(*v))
+			{
+				// #define?
+				GVariant vv;
+				if (!SMap->GetValue(v, vv))
+					return false;
+
+				Val = vv.CastDouble();
+			}
+			else
+			{
+				Val = Value.CastDouble();
+			}
 			return true;
 		}
 
@@ -1183,8 +1222,8 @@ public:
 			{
 				BitReference Ref;
 				Ref = View;
-				int i = d->CastInt(Ref, Little);
-				if (i != Val)
+				int a = d->CastInt(Ref, Little);
+				if (a != Val)
 				{
 					View.Out.Print("%sValue Mismatch!\n", Tabs);
 					return false;
@@ -1366,27 +1405,25 @@ public:
 	{
 		if (!d->Hidden)
 		{
-			bool Long =  ArrayLength >= 256;
+			bool Long =  ArrayLength >= 64;
 			if (Long)
 			{
-				View.Out.Print("%s%s[%i]\n", Tabs, d->Name, ArrayLength);
+				GAutoString u(DisplayString((char*)View.Aligned(), ArrayLength, d->Type->Base->Signed));
+				View.Out.Print("%s%s[%i] = '%.64s'...\n", Tabs, d->Name, ArrayLength, u);
 			}
 			else if (d->Type->Base->Bytes == 1)
 			{
-				// char *u = (char*) LgiNewConvertCp("utf-8", Data, "iso-8859-1", Length);
-				char *u = DisplayString((char*)View.Aligned(), ArrayLength, d->Type->Base->Signed);
+				GAutoString u(DisplayString((char*)View.Aligned(), ArrayLength, d->Type->Base->Signed));
 
-				View.Out.Print("%s%s = '%s'\n", Tabs, d->Name, u);
+				View.Out.Print("%s%s[%i] = '%s'\n", Tabs, d->Name, ArrayLength, u);
 				if (u && d->Value.Str())
 				{
 					if (strnicmp(u, d->Value.Str(), ArrayLength) != 0)
 					{
 						View.Out.Print("%sValue Mismatch!\n", Tabs);
-						DeleteArray(u);
 						return false;
 					}
 				}
-				DeleteArray(u);
 			}
 			else if (d->Type->Base->Bytes == 2)
 			{
@@ -1916,11 +1953,14 @@ public:
 			v->Base->Array = false;
 			v->Base->Signed = false;
 			v->Base->Type = TypeInteger;
-			if (XCmp(t+4, "8") == 0)
+			t += 4;
+
+			int Bits = Atoi(t);
+			if (Bits == 8)
 				v->Base->Bytes = 1;
-			else if (XCmp(t+4, "16") == 0)
+			else if (Bits == 16)
 				v->Base->Bytes = 2;
-			else if (XCmp(t+4, "64") == 0)
+			else if (Bits == 64)
 				v->Base->Bytes = 8;
 			else
 				v->Base->Bytes = 4;
@@ -2033,7 +2073,7 @@ public:
 			return NULL;
 		}		
 
-		GAutoPtr<VarDef> Var(new VarDef);
+		GAutoPtr<VarDef> Var(new VarDef(this));
 		if (!Var)
 		{
 			Err(State, "allocation error");

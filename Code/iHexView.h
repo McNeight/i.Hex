@@ -133,6 +133,7 @@ public:
 			(Buf != 0 &&  BufUsed > 0);
 	}
 
+	bool Save();
 	void SetDirty(bool Dirty = true);
 	bool GetData(int64 Start, int Len);
 	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
@@ -229,6 +230,7 @@ public:
 	bool CreateFile(int64 Len);
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(GHexBuffer *b, char *FileName);
+	bool Save();
 	bool HasFile();
 	bool Empty();
 	void SaveSelection(GHexBuffer *b, char *File);
