@@ -9,6 +9,8 @@
 #define INT32_MAX 0x7fffffff
 #endif
 
+#define MAX_STR_DISPLAY			64
+
 enum BaseType
 {
 	TypeNull,
@@ -1405,17 +1407,16 @@ public:
 	{
 		if (!d->Hidden)
 		{
-			bool Long =  ArrayLength >= 64;
-			if (Long)
-			{
-				GAutoString u(DisplayString((char*)View.Aligned(), ArrayLength, d->Type->Base->Signed));
-				View.Out.Print("%s%s[%i] = '%.64s'...\n", Tabs, d->Name, ArrayLength, u);
-			}
-			else if (d->Type->Base->Bytes == 1)
+			if (d->Type->Base->Bytes == 1)
 			{
 				GAutoString u(DisplayString((char*)View.Aligned(), ArrayLength, d->Type->Base->Signed));
 
-				View.Out.Print("%s%s[%i] = '%s'\n", Tabs, d->Name, ArrayLength, u);
+				View.Out.Print("%s%s[%i] = '%.*s'%s\n",
+								Tabs, d->Name,
+								ArrayLength,
+								MIN(MAX_STR_DISPLAY, ArrayLength),
+								u,
+								ArrayLength>MAX_STR_DISPLAY?"...":"");
 				if (u && d->Value.Str())
 				{
 					if (strnicmp(u, d->Value.Str(), ArrayLength) != 0)
