@@ -189,6 +189,7 @@
     <ClInclude Include="..\..\Lgi\trunk\include\common\GLexCpp.h" />
     <ClInclude Include="..\..\Lgi\trunk\include\common\GScripting.h" />
     <ClInclude Include="..\..\Lgi\trunk\src\common\Coding\GScriptingPriv.h" />
+    <ClInclude Include="..\..\Lgi\trunk\src\common\Coding\Instructions.h" />
     <ClInclude Include="Code\iHex.h" />
     <ClInclude Include="Code\iHexView.h" />
   </ItemGroup>
