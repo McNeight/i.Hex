@@ -1840,7 +1840,7 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 		Empty();
 
 		GAutoPtr<GHexBuffer> b(new GHexBuffer(this));
-		if (b)
+		if (b && FileName)
 		{
 			if (b->Open(FileName, ReadOnly))
 			{
@@ -1871,6 +1871,22 @@ bool GHexView::OpenFile(char *FileName, bool ReadOnly)
 	}
 
 	return Status;
+}
+
+bool GHexView::CloseFile(int Index)
+{
+	if (Index < 0)
+		Index = Buf.Length() - 1;
+	if (!Buf.AddressOf((unsigned) Index))
+		return false;
+
+	delete Buf[Index];
+	Buf.DeleteAt(Index, true);
+	
+	Cursor.Empty();
+	Selection.Empty();
+	
+	return true;
 }
 
 bool GHexView::Save()
@@ -2996,12 +3012,10 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 		}
 		case IDM_CLOSE:
 		{
-			if (Doc)
-			{
-				Doc->OpenFile(0, false);
-				OnDocument(false);
-				OnDirty(GetDirty());
-			}
+			if (Doc && Doc->HasFile())
+				Doc->CloseFile();
+			else
+				LgiCloseApp();
 			break;
 		}
 		case IDM_SAVE_SELECTION:

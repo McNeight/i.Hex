@@ -230,6 +230,7 @@ public:
 	bool CreateFile(int64 Len);
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(GHexBuffer *b, char *FileName);
+	bool CloseFile(int Index = -1);
 	bool Save();
 	bool HasFile();
 	bool Empty();
