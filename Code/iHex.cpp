@@ -1885,7 +1885,8 @@ bool GHexView::CloseFile(int Index)
 	
 	Cursor.Empty();
 	Selection.Empty();
-	
+
+	Invalidate();	
 	return true;
 }
 
