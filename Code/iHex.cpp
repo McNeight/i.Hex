@@ -99,7 +99,7 @@ public:
 		#endif
 	}
 
-	int Read(void *Ptr, int Len, int Flags = 0)
+	ssize_t Read(void *Ptr, ssize_t Len, int Flags = 0)
 	{
 		#ifdef WIN32
 		if (phProv)
@@ -1154,7 +1154,7 @@ void GHexView::Paste()
 	GClipBoard c(this);
 
 	GAutoPtr<uint8> Ptr;
-	int Len = 0;
+	ssize_t Len = 0;
 	#ifdef WIN32
 	if (c.Binary(CF_PRIVATEFIRST, Ptr, &Len))
 	{
@@ -2664,7 +2664,7 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 			CmdText.ToolButton = Tools->AppendButton("Text", IDM_TEXTVIEW, TBT_TOGGLE, false, 5);
 		}
 
-		Pour();
+		PourAll();
 		Bar = new IHexBar(this, Tools ? Tools->Y() : 20);
 
 		Status = new GStatusBar;
@@ -2690,7 +2690,7 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 		#endif
 		
 		Visible(true);
-		Pour();
+		PourAll();
 		
 		DropTarget(true);
 	}
@@ -2834,7 +2834,7 @@ void AppWnd::ToggleVisualise()
 		Visual = 0;
 	}
 
-	Pour();
+	PourAll();
 }
 
 void AppWnd::ToggleTextView()
@@ -2865,7 +2865,7 @@ void AppWnd::ToggleTextView()
 		TextView = 0;
 	}
 
-	Pour();
+	PourAll();
 }
 
 int Cmp(char **a, char **b)
@@ -3163,9 +3163,9 @@ GRect GetClient(GView *w)
 	#endif
 }
 
-void AppWnd::Pour()
+void AppWnd::PourAll()
 {
-	GDocApp<GOptionsFile>::Pour();
+	GDocApp<GOptionsFile>::PourAll();
 }
 
 bool AppWnd::OpenFile(char *FileName, bool ReadOnly)

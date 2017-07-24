@@ -104,7 +104,7 @@ public:
 
 	void SetStatus(int Pos, char *Text);
 
-	void Pour();
+	void PourAll();
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(char *FileName);
 	void OnDocument(bool Valid);
