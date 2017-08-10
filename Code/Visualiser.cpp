@@ -1,7 +1,7 @@
 #include "Lgi.h"
 #include "GToken.h"
 #include "iHex.h"
-#include "GList.h"
+#include "LList.h"
 #include "GUtf8.h"
 #include "GLexCpp.h"
 #include "resdefs.h"
@@ -960,7 +960,7 @@ void VarDefType::Sizeof(BitReference &sz)
 	}
 }
 
-class StructureMap : public GListItem, public GDom
+class StructureMap : public LListItem, public GDom
 {
 	AppWnd *App;
 	char *File;
@@ -2325,11 +2325,11 @@ class MapEditor : public GWindow, public GLgiRes
 	AppWnd *App;
 	StructureMap *Map;
 	char *Basepath;
-	GList *Lst;
+	LList *Lst;
 	GTextView3 *Txt;
 
 public:
-	MapEditor(AppWnd *app, StructureMap *map, char *basepath, GList *lst)
+	MapEditor(AppWnd *app, StructureMap *map, char *basepath, LList *lst)
 	{
 		App = app;
 		Basepath = basepath;
@@ -2433,13 +2433,13 @@ class GMapWnd : public GLayout
 {
 public:
 	GToolBar *Cmds;
-	GList *Lst;
+	LList *Lst;
 
 	GMapWnd()
 	{
 		SetPourLargest(true);
 		Children.Insert(Cmds = LgiLoadToolbar(this, "MapCmds.gif", 16, 16));
-		Children.Insert(Lst = new GList(IDC_LIST, 0, 0, 100, 100));
+		Children.Insert(Lst = new LList(IDC_LIST, 0, 0, 100, 100));
 		Cmds->AppendButton("New", IDM_NEW, TBT_PUSH);
 		Cmds->AppendButton("Delete", IDM_DELETE, TBT_PUSH);
 		Cmds->AppendButton("Compile", IDM_COMPILE, TBT_PUSH);
@@ -2527,10 +2527,10 @@ int GVisualiseView::OnNotify(GViewI *c, int f)
 		}
 		case IDM_DELETE:
 		{
-			List<GListItem> Sel;
+			List<LListItem> Sel;
 			if (Map->Lst && Map->Lst->GetSelection(Sel))
 			{
-				for (GListItem *i=Sel.First(); i; i=Sel.Next())
+				for (LListItem *i=Sel.First(); i; i=Sel.Next())
 				{
 					StructureMap *m = dynamic_cast<StructureMap*>(i);
 					if (m)
@@ -2544,10 +2544,10 @@ int GVisualiseView::OnNotify(GViewI *c, int f)
 		}
 		case IDM_COMPILE:
 		{
-			List<GListItem> Sel;
+			List<LListItem> Sel;
 			if (Map->Lst && Map->Lst->GetSelection(Sel))
 			{
-				for (GListItem *i=Sel.First(); i; i=Sel.Next())
+				for (LListItem *i=Sel.First(); i; i=Sel.Next())
 				{
 					StructureMap *m = dynamic_cast<StructureMap*>(i);
 					if (m)
