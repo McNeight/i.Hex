@@ -1162,7 +1162,7 @@ void GHexView::Paste()
 	else
 	#endif
 	{
-		GAutoString Txt(c.Text());
+		GString Txt = c.Text();
 		if (Txt)
 		{
 			// Convert from binary...
