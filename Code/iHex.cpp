@@ -2032,7 +2032,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 		}
 		#endif
 
-		for (int64 i=0; !Dlg.Cancel() && i<Len; i+=Buf.Length())
+		for (int64 i=0; !Dlg.IsCancelled() && i<Len; i+=Buf.Length())
 		{
 			int64 Remain = min(Buf.Length(), Len-i);
 
