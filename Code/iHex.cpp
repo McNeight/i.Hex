@@ -282,6 +282,7 @@ public:
 	IHexBar(AppWnd *a, int y);
 	~IHexBar();
 
+	bool IsHex();
 	int64 GetOffset(int IsHex = -1, bool *Select = 0);
 	void SetOffset(int64 Offset);
 	bool IsSigned();
@@ -378,17 +379,26 @@ bool IHexBar::IsLittleEndian()
 	return GetCtrlValue(IDC_LITTLE);
 }
 
+bool IHexBar::IsHex()
+{
+	return GetCtrlValue(IDC_IS_HEX) != 0;
+}
+
 void IHexBar::SetOffset(int64 Offset)
 {
-	if (GetCtrlValue(IDC_IS_HEX))
+	if (IsHex())
 	{
 		char s[64];
 		
 		#if 1
 		int ch = 0;
 		if (Offset >> 32)
-			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned) (Offset >> 32));
-		ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned)Offset);
+		{
+			ch += sprintf_s(s + ch, sizeof(s) - ch, "0x%x", (unsigned) (Offset >> 32));
+			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned) (Offset && 0xffffffff));
+		}
+		else
+			ch += sprintf_s(s + ch, sizeof(s) - ch, "0x%x", (unsigned)Offset);
 		#else
 		// What is the point of this code?
 		char *c = s;
@@ -468,13 +478,54 @@ int IHexBar::OnNotify(GViewI *c, int f)
 		{
 			if (View)
 			{
-				bool IsHex = GetCtrlValue(IDC_IS_HEX);
-
-				// Change format of the edit box
-				SetOffset(GetOffset(!IsHex));
+				bool HexFmt = !IsHex();
+				const char *i = GetCtrlName(IDC_OFFSET);
+				GArray<char> o;
+				while (i && *i)
+				{
+					if (HexFmt)
+					{
+						// Detect valid hex number
+						if (i[0] == '0' &&
+							ToLower(i[1]) == 'x')
+						{
+							const char *e = i + 2;
+							while (IsHexDigit(*e))
+								e++;
+							GString a(i, e-i), b;
+							b.Printf("%i", a.Int(16)); // convert to decimal
+							o.Add(b.Get(), b.Length());
+							i = e;
+						}
+						else
+						{
+							o.Add(*i++);
+						}
+					}
+					else
+					{
+						// Detect valid decimal number
+						if (IsDigit(i[0]))
+						{
+							const char *e = i;
+							while (IsDigit(*e) || *e == '.')
+								e++;
+							GString a(i, e-i), b;
+							b.Printf("0x%x", a.Int(10)); // convert to hex
+							o.Add(b.Get(), b.Length());
+							i = e;
+						}
+						else
+						{
+							o.Add(*i++);
+						}						
+					}
+				}
+				o.Add(0);
+				SetCtrlName(IDC_OFFSET, o.AddressOf());
 
 				// Tell the hex view
-				View->SetIsHex(IsHex);
+				View->SetIsHex(HexFmt);
 
 				// Return focus to the view
 				View->Focus(true);
