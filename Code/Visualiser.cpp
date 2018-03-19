@@ -625,7 +625,7 @@ struct VarDef : public Member
 				default:
 					LgiAssert(!"Not impl");
 					break;
-				case TypeInt:
+				case TypeInteger:
 				{
 					int64 Val = CastInt(Addr, Little);
 					f = (double)Val;
@@ -1415,7 +1415,7 @@ public:
 								Tabs, d->Name,
 								ArrayLength,
 								MIN(MAX_STR_DISPLAY, ArrayLength),
-								u,
+								u.Get(),
 								ArrayLength>MAX_STR_DISPLAY?"...":"");
 				if (u && d->Value.Str())
 				{

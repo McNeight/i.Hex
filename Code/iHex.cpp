@@ -395,7 +395,7 @@ void IHexBar::SetOffset(int64 Offset)
 		if (Offset >> 32)
 		{
 			ch += sprintf_s(s + ch, sizeof(s) - ch, "0x%x", (unsigned) (Offset >> 32));
-			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned) (Offset && 0xffffffff));
+			ch += sprintf_s(s + ch, sizeof(s) - ch, "%x", (unsigned) (Offset & 0xffffffff));
 		}
 		else
 			ch += sprintf_s(s + ch, sizeof(s) - ch, "0x%x", (unsigned)Offset);
