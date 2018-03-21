@@ -79,7 +79,7 @@ struct BitReference
 				return false;
 			
 			int Avail = 8 - Bit;
-			int Sk = min(Bits, Avail);
+			int Sk = MIN(Bits, Avail);
 			Bits -= Sk;
 			Bit += Sk;
 			if (Bit >= 8)
@@ -165,7 +165,7 @@ struct BitReference
 			while (Bits > 0)
 			{
 				int Avail = BitSz - Bit;
-				int Rd = min(Avail, Bits);
+				int Rd = MIN(Avail, Bits);
 				int Mask = (1 << Rd) - 1;
 				int Shift = BitSz - Rd - Bit;
 				LgiAssert(Shift >= 0);
@@ -625,7 +625,7 @@ struct VarDef : public Member
 				default:
 					LgiAssert(!"Not impl");
 					break;
-				case TypeInt:
+				case TypeInteger:
 				{
 					int64 Val = CastInt(Addr, Little);
 					f = (double)Val;
@@ -770,7 +770,7 @@ bool ConditionDef::GetVariant(const char *Name, GVariant &Value, char *Array)
 		return false;
 	}
 	
-	int Len = min(Members.Length(), Addr.Length());
+	int Len = MIN(Members.Length(), Addr.Length());
 	ConditionDef *c = NULL;
 	for (int i=0; i<Len; i++)
 	{
@@ -2155,7 +2155,7 @@ public:
 		else
 		{
 			Err(State, "expected ';'");
-			return false;
+			return NULL;
 		}
 		
 		return Var.Release();
