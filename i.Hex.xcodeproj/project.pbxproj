@@ -25,7 +25,7 @@
 		342D52BE0F0CBA9F002A1C7C /* GScriptVM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52BA0F0CBA9F002A1C7C /* GScriptVM.cpp */; };
 		342D52DB0F0CBAFF002A1C7C /* Gif.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52D90F0CBAFF002A1C7C /* Gif.cpp */; };
 		342D52DC0F0CBAFF002A1C7C /* Lzw.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52DA0F0CBAFF002A1C7C /* Lzw.cpp */; };
-		34640D6D12D5DE7400B207F4 /* iHexIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 34640D6C12D5DE7400B207F4 /* iHexIcon.icns */; };
+		34640D6D12D5DE7400B207F4 /* mac-icon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 34640D6C12D5DE7400B207F4 /* mac-icon.icns */; };
 		348335D41AA190DD006BD4F9 /* Lgi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 348335D31AA190D2006BD4F9 /* Lgi.framework */; };
 		348335D51AA190E1006BD4F9 /* Lgi.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 348335D31AA190D2006BD4F9 /* Lgi.framework */; };
 		348335D71AA197E3006BD4F9 /* GLexCpp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 348335D61AA197E3006BD4F9 /* GLexCpp.cpp */; };
@@ -82,7 +82,7 @@
 		342D52BA0F0CBA9F002A1C7C /* GScriptVM.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GScriptVM.cpp; path = ../../Lgi/trunk/src/common/Coding/GScriptVM.cpp; sourceTree = SOURCE_ROOT; };
 		342D52D90F0CBAFF002A1C7C /* Gif.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Gif.cpp; path = ../../Lgi/trunk/src/common/Gdc2/Filters/Gif.cpp; sourceTree = SOURCE_ROOT; };
 		342D52DA0F0CBAFF002A1C7C /* Lzw.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Lzw.cpp; path = ../../Lgi/trunk/src/common/Gdc2/Filters/Lzw.cpp; sourceTree = SOURCE_ROOT; };
-		34640D6C12D5DE7400B207F4 /* iHexIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = iHexIcon.icns; sourceTree = "<group>"; };
+		34640D6C12D5DE7400B207F4 /* mac-icon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = "mac-icon.icns"; path = "Resources/mac-icon.icns"; sourceTree = "<group>"; };
 		348335CE1AA190D1006BD4F9 /* LgiCarbon.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = LgiCarbon.xcodeproj; path = ../../Lgi/trunk/src/mac/carbon/LgiCarbon.xcodeproj; sourceTree = "<group>"; };
 		348335D61AA197E3006BD4F9 /* GLexCpp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GLexCpp.cpp; path = ../../Lgi/trunk/src/common/Coding/GLexCpp.cpp; sourceTree = "<group>"; };
 		4A9504C8FFE6A3BC11CA0CBA /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
@@ -141,7 +141,7 @@
 		20286C2CFDCF999611CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				34640D6C12D5DE7400B207F4 /* iHexIcon.icns */,
+				34640D6C12D5DE7400B207F4 /* mac-icon.icns */,
 				342D52950F0CBA02002A1C7C /* icon16.png */,
 				342D52960F0CBA02002A1C7C /* icon32.png */,
 				342D52970F0CBA02002A1C7C /* icon64.png */,
@@ -265,7 +265,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				34640D6D12D5DE7400B207F4 /* iHexIcon.icns in Resources */,
+				34640D6D12D5DE7400B207F4 /* mac-icon.icns in Resources */,
 				8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */,
 				8D0C4E8E0486CD37000505A6 /* main.nib in Resources */,
 				342D529C0F0CBA02002A1C7C /* icon16.png in Resources */,
@@ -381,7 +381,7 @@
 					../../Lgi/trunk/include/mac/carbon,
 					./Resources,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				VALID_ARCHS = i386;
@@ -400,7 +400,7 @@
 					../../Lgi/trunk/include/mac/carbon,
 					./Resources,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				SDKROOT = macosx;
 				VALID_ARCHS = i386;
 			};

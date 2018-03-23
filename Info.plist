@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>${EXECUTABLE_NAME}</string>
 	<key>CFBundleIconFile</key>
-	<string>iHexIcon.icns</string>
+	<string>mac-icon.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.memecode.i.Hex</string>
 	<key>CFBundleInfoDictionaryVersion</key>
