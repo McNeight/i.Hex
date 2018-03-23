@@ -11,12 +11,11 @@
 		342D52870F0CB994002A1C7C /* MapLex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52830F0CB994002A1C7C /* MapLex.cpp */; };
 		342D52880F0CB994002A1C7C /* SearchDlg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52840F0CB994002A1C7C /* SearchDlg.cpp */; };
 		342D52890F0CB994002A1C7C /* Visualiser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52850F0CB994002A1C7C /* Visualiser.cpp */; };
-		342D529C0F0CBA02002A1C7C /* icon-16x16.png in Resources */ = {isa = PBXBuildFile; fileRef = 342D52950F0CBA02002A1C7C /* icon-16x16.png */; };
-		342D529D0F0CBA02002A1C7C /* icon-32x32.png in Resources */ = {isa = PBXBuildFile; fileRef = 342D52960F0CBA02002A1C7C /* icon-32x32.png */; };
-		342D529E0F0CBA02002A1C7C /* icon-large.png in Resources */ = {isa = PBXBuildFile; fileRef = 342D52970F0CBA02002A1C7C /* icon-large.png */; };
+		342D529C0F0CBA02002A1C7C /* icon16.png in Resources */ = {isa = PBXBuildFile; fileRef = 342D52950F0CBA02002A1C7C /* icon16.png */; };
+		342D529D0F0CBA02002A1C7C /* icon32.png in Resources */ = {isa = PBXBuildFile; fileRef = 342D52960F0CBA02002A1C7C /* icon32.png */; };
+		342D529E0F0CBA02002A1C7C /* icon64.png in Resources */ = {isa = PBXBuildFile; fileRef = 342D52970F0CBA02002A1C7C /* icon64.png */; };
 		342D529F0F0CBA02002A1C7C /* ihex.lr8 in Resources */ = {isa = PBXBuildFile; fileRef = 342D52980F0CBA02002A1C7C /* ihex.lr8 */; };
 		342D52A00F0CBA02002A1C7C /* MapCmds.gif in Resources */ = {isa = PBXBuildFile; fileRef = 342D52990F0CBA02002A1C7C /* MapCmds.gif */; };
-		342D52A10F0CBA02002A1C7C /* Tools.bmp in Resources */ = {isa = PBXBuildFile; fileRef = 342D529A0F0CBA02002A1C7C /* Tools.bmp */; };
 		342D52A20F0CBA02002A1C7C /* Tools.gif in Resources */ = {isa = PBXBuildFile; fileRef = 342D529B0F0CBA02002A1C7C /* Tools.gif */; };
 		342D52A50F0CBA2F002A1C7C /* LgiMain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52A40F0CBA2F002A1C7C /* LgiMain.cpp */; };
 		342D52AF0F0CBA69002A1C7C /* GDocApp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52AE0F0CBA69002A1C7C /* GDocApp.cpp */; };
@@ -68,13 +67,12 @@
 		342D52830F0CB994002A1C7C /* MapLex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MapLex.cpp; path = Code/MapLex.cpp; sourceTree = "<group>"; };
 		342D52840F0CB994002A1C7C /* SearchDlg.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SearchDlg.cpp; path = Code/SearchDlg.cpp; sourceTree = "<group>"; };
 		342D52850F0CB994002A1C7C /* Visualiser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Visualiser.cpp; path = Code/Visualiser.cpp; sourceTree = "<group>"; };
-		342D52950F0CBA02002A1C7C /* icon-16x16.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "icon-16x16.png"; path = "Code/icon-16x16.png"; sourceTree = "<group>"; };
-		342D52960F0CBA02002A1C7C /* icon-32x32.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "icon-32x32.png"; path = "Code/icon-32x32.png"; sourceTree = "<group>"; };
-		342D52970F0CBA02002A1C7C /* icon-large.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "icon-large.png"; path = "Code/icon-large.png"; sourceTree = "<group>"; };
-		342D52980F0CBA02002A1C7C /* ihex.lr8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = ihex.lr8; path = Code/ihex.lr8; sourceTree = "<group>"; };
-		342D52990F0CBA02002A1C7C /* MapCmds.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; name = MapCmds.gif; path = Code/MapCmds.gif; sourceTree = "<group>"; };
-		342D529A0F0CBA02002A1C7C /* Tools.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; name = Tools.bmp; path = Code/Tools.bmp; sourceTree = "<group>"; };
-		342D529B0F0CBA02002A1C7C /* Tools.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; name = Tools.gif; path = Code/Tools.gif; sourceTree = "<group>"; };
+		342D52950F0CBA02002A1C7C /* icon16.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon16.png; path = Resources/icon16.png; sourceTree = "<group>"; };
+		342D52960F0CBA02002A1C7C /* icon32.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon32.png; path = Resources/icon32.png; sourceTree = "<group>"; };
+		342D52970F0CBA02002A1C7C /* icon64.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon64.png; path = Resources/icon64.png; sourceTree = "<group>"; };
+		342D52980F0CBA02002A1C7C /* ihex.lr8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = ihex.lr8; path = Resources/ihex.lr8; sourceTree = "<group>"; };
+		342D52990F0CBA02002A1C7C /* MapCmds.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; name = MapCmds.gif; path = Resources/MapCmds.gif; sourceTree = "<group>"; };
+		342D529B0F0CBA02002A1C7C /* Tools.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; name = Tools.gif; path = Resources/Tools.gif; sourceTree = "<group>"; };
 		342D52A40F0CBA2F002A1C7C /* LgiMain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = LgiMain.cpp; path = ../../Lgi/trunk/src/common/Lgi/LgiMain.cpp; sourceTree = SOURCE_ROOT; };
 		342D52AE0F0CBA69002A1C7C /* GDocApp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GDocApp.cpp; path = ../../Lgi/trunk/src/common/Lgi/GDocApp.cpp; sourceTree = SOURCE_ROOT; };
 		342D52B00F0CBA77002A1C7C /* GAbout.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GAbout.cpp; path = ../../Lgi/trunk/src/common/Lgi/GAbout.cpp; sourceTree = SOURCE_ROOT; };
@@ -144,12 +142,11 @@
 			isa = PBXGroup;
 			children = (
 				34640D6C12D5DE7400B207F4 /* iHexIcon.icns */,
-				342D52950F0CBA02002A1C7C /* icon-16x16.png */,
-				342D52960F0CBA02002A1C7C /* icon-32x32.png */,
-				342D52970F0CBA02002A1C7C /* icon-large.png */,
+				342D52950F0CBA02002A1C7C /* icon16.png */,
+				342D52960F0CBA02002A1C7C /* icon32.png */,
+				342D52970F0CBA02002A1C7C /* icon64.png */,
 				342D52980F0CBA02002A1C7C /* ihex.lr8 */,
 				342D52990F0CBA02002A1C7C /* MapCmds.gif */,
-				342D529A0F0CBA02002A1C7C /* Tools.bmp */,
 				342D529B0F0CBA02002A1C7C /* Tools.gif */,
 				8D0C4E960486CD37000505A6 /* Info.plist */,
 				0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */,
@@ -271,12 +268,11 @@
 				34640D6D12D5DE7400B207F4 /* iHexIcon.icns in Resources */,
 				8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */,
 				8D0C4E8E0486CD37000505A6 /* main.nib in Resources */,
-				342D529C0F0CBA02002A1C7C /* icon-16x16.png in Resources */,
-				342D529D0F0CBA02002A1C7C /* icon-32x32.png in Resources */,
-				342D529E0F0CBA02002A1C7C /* icon-large.png in Resources */,
+				342D529C0F0CBA02002A1C7C /* icon16.png in Resources */,
+				342D529D0F0CBA02002A1C7C /* icon32.png in Resources */,
+				342D529E0F0CBA02002A1C7C /* icon64.png in Resources */,
 				342D529F0F0CBA02002A1C7C /* ihex.lr8 in Resources */,
 				342D52A00F0CBA02002A1C7C /* MapCmds.gif in Resources */,
-				342D52A10F0CBA02002A1C7C /* Tools.bmp in Resources */,
 				342D52A20F0CBA02002A1C7C /* Tools.gif in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -383,6 +379,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Lgi/trunk/include/common,
 					../../Lgi/trunk/include/mac/carbon,
+					./Resources,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				ONLY_ACTIVE_ARCH = YES;
@@ -401,6 +398,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Lgi/trunk/include/common,
 					../../Lgi/trunk/include/mac/carbon,
+					./Resources,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				SDKROOT = macosx;
