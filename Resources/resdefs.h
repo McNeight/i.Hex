@@ -66,6 +66,7 @@
 #define IDM_ABOUT								532
 #define IDM_NEW_BUFFER							533
 #define IDM_MENU_534							534
+#define IDM_PASTE_BINARY						535
 #define IDM_OPEN								15000
 #define IDM_SAVE								15002
 #define IDM_CLOSE								15003

@@ -231,7 +231,7 @@ public:
 	bool OpenFile(char *FileName, bool ReadOnly);
 	bool SaveFile(GHexBuffer *b, char *FileName);
 	bool CloseFile(int Index = -1);
-	bool Save();
+	int Save();
 	bool HasFile();
 	bool Empty();
 	void SaveSelection(GHexBuffer *b, char *File);
@@ -240,7 +240,7 @@ public:
 	void CompareFile(char *File);
 
 	void Copy(FormatType Fmt);
-	void Paste();
+	void Paste(FormatType Fmt);
 
 	bool HasSelection();
 	int GetSelectedNibbles();

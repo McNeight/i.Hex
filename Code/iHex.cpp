@@ -1200,12 +1200,14 @@ void GHexView::Copy(FormatType Fmt)
 	}
 }
 
-void GHexView::Paste()
+void GHexView::Paste(FormatType Fmt)
 {
 	GClipBoard c(this);
 
 	GAutoPtr<uint8> Ptr;
 	ssize_t Len = 0;
+	char *Txt;
+
 	#ifdef WIN32
 	if (c.Binary(CF_PRIVATEFIRST, Ptr, &Len))
 	{
@@ -1213,8 +1215,11 @@ void GHexView::Paste()
 	else
 	#endif
 	{
-		GString Txt = c.Text();
-		if (Txt)
+		Txt = c.Text();
+		if (!Txt)
+			return;
+
+		if (Fmt == FmtHex)
 		{
 			// Convert from binary...
 			GArray<uint8> Out;
@@ -1278,6 +1283,11 @@ void GHexView::Paste()
 				Len = Out.Length();
 				Ptr.Reset(Out.Release());
 			}
+		}
+		else
+		{
+			Len = strlen(Txt);
+			Ptr.Reset((uint8*)NewStr(Txt));
 		}
 	}
 
@@ -1941,7 +1951,7 @@ bool GHexView::CloseFile(int Index)
 	return true;
 }
 
-bool GHexView::Save()
+int GHexView::Save()
 {
 	bool Status = true;
 
@@ -1964,7 +1974,7 @@ bool GHexView::Save()
 
 					App->SetCurFile(s.Name());
 				}
-				else Status = false;
+				else return -1;
 			}
 
 			b->Save();
@@ -2769,10 +2779,11 @@ void AppWnd::OnReceiveFiles(GArray<char*> &Files)
 
 bool AppWnd::OnRequestClose(bool OsShuttingDown)
 {
+	if (Doc)
+		Doc->Save();
+
 	if (!Active)
-	{
 		return GWindow::OnRequestClose(OsShuttingDown);
-	}
 
 	return false;
 }
@@ -2945,7 +2956,12 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 		}
 		case IDM_PASTE:
 		{
-			Doc->Paste();
+			Doc->Paste(FmtHex);
+			break;
+		}
+		case IDM_PASTE_BINARY:
+		{
+			Doc->Paste(FmtText);
 			break;
 		}
 		case IDM_COMBINE_FILES:

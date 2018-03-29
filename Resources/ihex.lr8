@@ -155,7 +155,7 @@
 			<String Ref="60" Cid="519" Define="IDM_COPY_HEX" en="Copy Hex" />
 			<String Ref="61" Cid="520" Define="IDM_COPY_TEXT" en="Copy Text" />
 			<String Ref="62" Cid="521" Define="IDM_COPY_CODE" en="Copy as Code" />
-			<String Ref="63" Cid="522" Define="IDM_PASTE" en="Paste" />
+			<String Ref="63" Cid="522" Define="IDM_PASTE" en="Paste Hex" />
 			<String Ref="64" Cid="523" Define="IDM_MENU_523" />
 			<String Ref="65" Cid="524" Define="IDM_SELECT_ALL" en="Select All" />
 			<String Ref="66" Cid="525" Define="IDM_SAVE_SELECTION" en="Save Selection To File" />
@@ -172,6 +172,7 @@
 			<String Ref="77" Cid="517" Define="IDM_NEXT" en="&Next" />
 			<String Ref="79" Cid="533" Define="IDM_NEW_BUFFER" en="&New Buffer" />
 			<String Ref="80" Cid="534" Define="IDM_MENU_534" />
+			<String Ref="82" Cid="535" Define="IDM_PASTE_BINARY" en="Paste Binary" />
 		</string-group>
 		<submenu Ref="48">
 			<menuitem Ref="79" Shortcut="Ctrl+N" />
@@ -195,6 +196,7 @@
 			<menuitem Ref="61" Shortcut="Ctrl+Shift+C" />
 			<menuitem Ref="62" Shortcut="Ctrl+Alt+C" />
 			<menuitem Ref="63" Shortcut="Ctrl+V" />
+			<menuitem Ref="82" Shortcut="Ctrl+Shift+V" />
 			<menuitem Sep="1" />
 			<menuitem Ref="76" Shortcut="Ctrl+F" />
 			<menuitem Ref="77" Shortcut="F3" />
