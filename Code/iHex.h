@@ -109,6 +109,7 @@ public:
 	bool SaveFile(char *FileName);
 	void OnDocument(bool Valid);
 
+	void Empty();
 	bool OnKey(GKey &k);
 	void OnPosChange();
 	GMessage::Result OnEvent(GMessage *Msg);

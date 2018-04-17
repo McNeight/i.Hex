@@ -3080,10 +3080,12 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 		}
 		case IDM_CLOSE:
 		{
-			if (Doc && Doc->HasFile())
+			/*
+			if (Doc)
 				Doc->CloseFile();
 			else
 				LgiCloseApp();
+			*/
 			break;
 		}
 		case IDM_SAVE_SELECTION:
@@ -3255,6 +3257,12 @@ bool AppWnd::SaveFile(char *FileName)
 		Status = Doc->SaveFile(NULL, FileName);
 	}
 	return Status;
+}
+
+void AppWnd::Empty()
+{
+	if (Doc)
+		Doc->Empty();
 }
 
 void AppWnd::OnDocument(bool Valid)
