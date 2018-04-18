@@ -346,13 +346,14 @@ public:
 	StructDef *Cmplex;
 	char *Pad;
 	GArray<ArrayDimension> Length; // for arrays
+	ssize_t ResolvedLength;
 
 	VarDefType()
 	{
 		Pad = 0;
 		Base = 0;
 		Cmplex = 0;
-		Length = 0;
+		ResolvedLength = -1;
 	}
 
 	~VarDefType()
@@ -795,24 +796,21 @@ bool ConditionDef::GetVariant(const char *Name, GVariant &Value, char *Array)
 }
 
 
-class StructDef
+class StructDef : public GDom
 {
+	BitReference EvalAddr;
+	bool EvalLittle;
+
 public:
-	char *Name;
-	char *Base;
+	GString Name;
+	GString Base;
 	GArray<Member*> Members;
 	GArray<StructDef*> Children;
 
 	StructDef()
 	{
-		Name = 0;
-		Base = 0;
-	}
-
-	~StructDef()
-	{
-		DeleteArray(Name);
-		DeleteArray(Base);
+		EvalAddr.Ptr = NULL;
+		EvalLittle = false;
 	}
 
 	void Sizeof(BitReference &sz)
@@ -821,6 +819,78 @@ public:
 		{
 			Members[i]->Sizeof(sz);
 		}
+	}
+
+	bool GetVariant(const char *Name, GVariant &Value, char *Array = NULL)
+	{
+		if (!Name || !EvalAddr.IsValid())
+			return false;
+
+		BitReference Addr = EvalAddr;
+		for (Member **m = NULL; Members.Iterate(m); )
+		{
+			Member *Mem = *m;
+			VarDef *c = Mem->IsVar();
+			if (c &&
+				c->Type)
+			{
+				if (c->Name && !stricmp(c->Name, Name))
+				{
+					switch (c->Type->Base->Type)
+					{
+						case TypeInteger:
+						{
+							if (!c->Type->Base->Array)
+							{
+								Value = c->CastInt(Addr, EvalLittle);
+								return true;
+							}
+							else LgiAssert(!"Impl me.");
+							break;
+						}
+						case TypeFloat:
+						{
+							if (!c->Type->Base->Array)
+							{
+								Value = c->CastFloat(Addr, EvalLittle);
+								return true;
+							}
+							else LgiAssert(!"Impl me.");
+							break;
+						}
+						case TypeChar:
+						{
+							if (c->Type->Base->Bytes == 1)
+							{
+								// Utf string...
+								Value.OwnStr(NewStr((char*)Addr.Ptr, c->Type->ResolvedLength));
+								return true;
+							}
+							else if (c->Type->Base->Bytes == 2)
+							{
+								// Utf16 string...
+								LgiAssert(!"Impl me.");
+							}
+							else if (c->Type->Base->Bytes == 4)
+							{
+								// Utf32 string...
+								LgiAssert(!"Impl me.");
+							}
+							else LgiAssert(!"What?");
+							break;
+						}
+						case TypeStrZ:
+						{
+							break;
+						}
+					}
+				}
+
+				Addr.Seek(c->Type->Base);
+			}
+		}
+	
+		return false;
 	}
 	
 	StructDef *GetStruct(const char *n)
@@ -858,85 +928,103 @@ public:
 
 	bool Match(BitReference &Addr, bool Little)
 	{
+		if (!Addr.IsValid())
+			return false;
+
 		bool Status = false;
+		EvalAddr = Addr;
+		EvalLittle = Little;
 
-		if (Addr.IsValid())
+		for (int i=0; i<Members.Length(); i++)
 		{
-			for (int i=0; i<Members.Length(); i++)
+			Member *Mem = Members[i];
+			VarDef *d = Mem->IsVar();
+			if (d && d->Type)
 			{
-				Member *Mem = Members[i];
-				VarDef *d = Mem->IsVar();
-				if (d && d->Type)
+				Basic *b = d->Type->Base;
+				if (b)
 				{
-					Basic *b = d->Type->Base;
-					if (b)
+					if ((b->Type == TypeChar) || (b->Type == TypeStrZ))
 					{
-						if ((b->Type == TypeChar) || (b->Type == TypeStrZ))
+						char *Str = 0;
+						if (d->HasValue(Str))
 						{
-							char *Str = 0;
-							if (d->HasValue(Str))
+							if (Str && strnicmp((char*)Addr.Aligned(), Str, strlen(Str)) != 0)
 							{
-								if (Str && strnicmp((char*)Addr.Aligned(), Str, strlen(Str)) != 0)
-								{
-									return false;
-								}
-								else Status = true;
+								return false;
 							}
+							else Status = true;
 						}
-						else if (d->Type->Base->Type == TypeInteger)
+					}
+					else if (d->Type->Base->Type == TypeInteger)
+					{
+						int Val = 0;
+						if (d->HasValue(Val))
 						{
-							int Val = 0;
-							if (d->HasValue(Val))
+							uint64 i = d->CastInt(Addr, Little);
+							if (i != Val)
 							{
-								uint64 i = d->CastInt(Addr, Little);
-								if (i != Val)
-								{
-									return false;
-								}
-								else Status = true;
+								return false;
 							}
+							else Status = true;
 						}
-						else if (d->Type->Base->Type == TypeFloat)
+					}
+					else if (d->Type->Base->Type == TypeFloat)
+					{
+						float Val = 0;
+						if (d->HasValue(Val))
 						{
-							float Val = 0;
-							if (d->HasValue(Val))
+							float f = d->CastFloat(Addr, Little);
+							if (f != Val)
 							{
-								float f = d->CastFloat(Addr, Little);
-								if (f != Val)
-								{
-									return false;
-								}
-								else Status = true;
+								return false;
 							}
+							else Status = true;
 						}
-						else LgiAssert(0);
+					}
+					else LgiAssert(0);
 
-						int Length = 1;
-						if (d->Type->Length.Length() > 0)
+					d->Type->ResolvedLength = 1;
+					if (d->Type->Length.Length() > 0)
+					{
+						ArrayDimension &ad = d->Type->Length.First();
+						if (ad.Expression.Length() == 1)
 						{
-							ArrayDimension &ad = d->Type->Length.First();
-							if (ad.Expression.Length() == 1)
-								Length = AtoiW(ad.Expression[0]);
-							else
-								LgiAssert(!"Impl me.");
-						}						
-						if (Length == 0)
-						{
-							break;
+							d->Type->ResolvedLength = AtoiW(ad.Expression[0]);
 						}
+						else
+						{
+							// Use the script engine to evaluate the expression...
+							GString::Array a;
+							for (unsigned i=0; i<ad.Expression.Length(); i++)
+								a.New() = ad.Expression[i];
+							GString Exp = GString(" ").Join(a);
 
-						LgiAssert(b->Bits == 0); // impl bit seeking support?
-						Addr.Ptr += b->Bytes * Length;
-						Addr.Len -= b->Bytes * Length;
-					}
-					else if (d->Type->Cmplex)
+							GScriptEngine Eng(NULL, NULL, NULL);
+							GVariant Result;
+							bool Status = Eng.EvaluateExpression(&Result, this, Exp);
+							if (!Status)
+								return false;
+
+							d->Type->ResolvedLength = Result.CastInt32();
+						}
+					}						
+					if (d->Type->ResolvedLength < 0)
 					{
-						Status |= d->Type->Cmplex->Match(Addr, Little);
+						break;
 					}
-					else
-					{
-						LgiAssert(0);
-					}
+
+					LgiAssert(b->Bits == 0); // impl bit seeking support?
+					Addr.Ptr += b->Bytes * d->Type->ResolvedLength;
+					Addr.Len -= b->Bytes * d->Type->ResolvedLength;
+				}
+				else if (d->Type->Cmplex)
+				{
+					Status |= d->Type->Cmplex->Match(Addr, Little);
+				}
+				else
+				{
+					LgiAssert(0);
 				}
 			}
 		}
@@ -1119,7 +1207,12 @@ public:
 		if (!d->Hidden)
 		{
 			View.Out.Print("%s%s", Tabs, d->Name);
-			if (ArrayLength > 1)
+			if (ArrayLength < 1)
+			{
+				View.Out.Print("[0]\n");
+				return true;
+			}
+			else if (ArrayLength > 1)
 				View.Out.Print("[%i]:\n", ArrayLength);
 			else
 				View.Out.Print(" = ");
@@ -1567,6 +1660,7 @@ public:
 			if (d->Type->Length.Length())
 			{
 				GArray<char*> DimStr;
+				ArrayLength = -1; // Unknown
 				for (unsigned dim = 0; dim < d->Type->Length.Length(); dim++)
 				{
 					GStringPipe p;
@@ -1607,9 +1701,6 @@ public:
 				
 				DimStr.DeleteArrays();
 			}
-
-			if (ArrayLength == 0)
-				return true;
 
 			if (d->Type->Base)
 			{
@@ -1664,12 +1755,14 @@ public:
 				}
 
 				int Offset = View.Offset();
-				if (sub)
-					View.Out.Print("%s%s.%s", Tabs, sub->Name, d->Name);
+				if (sub && ArrayLength == 1)
+					View.Out.Print("%s%s.%s", Tabs, sub->Name.Get(), d->Name);
 				else
 					View.Out.Print("%s%s", Tabs, d->Name);
-				if (ArrayLength != 1)
+				if (ArrayLength > 1 || ArrayLength == 0)
 					View.Out.Print("[%i]", ArrayLength);
+				else if (ArrayLength < 0)
+					View.Out.Print("[]");
 				View.Out.Print(" (@ %i/0x%x) =\n", Offset, Offset);
 				
 				if (ArrayLength == 1)
@@ -1686,7 +1779,7 @@ public:
 					if (ArrayLength != 1)
 					{
 						Offset = View.Offset();
-						View.Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name, Offset, Offset);
+						View.Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name.Get(), Offset, Offset);
 					}
 
 					if (!DoStruct(s, View, Little, Depth + 1 + (ArrayLength != 1 ? 1 : 0)))
@@ -2213,13 +2306,13 @@ public:
 					StructDef *Def = new StructDef;
 					if (Def)
 					{
-						Def->Name = State.NextA(false);
+						Def->Name = State.NextA();
 
 						t = State.NextW();
 						if (XCmp(t, ":") == 0)
 						{
 							Literal("inherits");
-							Def->Base = State.NextA(false);
+							Def->Base = State.NextA();
 							t = State.NextW();
 						}
 						CheckTok("{");

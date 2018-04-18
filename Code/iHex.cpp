@@ -3245,6 +3245,7 @@ bool AppWnd::OpenFile(char *FileName, bool ReadOnly)
 		Status = Doc->OpenFile(FileName, ReadOnly);
 		OnDocument(Status);
 		OnDirty(GetDirty());
+		SetCurFile(FileName);
 	}
 	return Status;
 }
