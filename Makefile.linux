@@ -8,7 +8,7 @@
 
 CC = gcc
 CPP = g++
-Target = libiHexd.so
+Target = ./iHex
 ifndef Build
 	Build = Debug
 endif
@@ -28,6 +28,7 @@ ifeq ($(Build),Debug)
 		-I../../Lgi/trunk/include/linux/Gtk \
 		-I../../Lgi/trunk/src/common/Coding \
 		-I./Code \
+		-I./Resources \
 		`pkg-config --cflags gtk+-2.0`
 else
 	Flags += -s -Os
@@ -40,11 +41,13 @@ else
 		-I../../Lgi/trunk/include/linux/Gtk \
 		-I../../Lgi/trunk/src/common/Coding \
 		-I./Code \
+		-I./Resources \
 		`pkg-config --cflags gtk+-2.0`
 endif
 
 # Dependencies
-Depends =	GAbout.o \
+Depends =	 \
+			GAbout.o \
 			GDocApp.o \
 			Gif.o \
 			LgiMain.o \
@@ -392,7 +395,7 @@ Diff.o : ./Code/Diff.cpp ./Code/Diff.h
 iHex.o : ./Code/iHex.cpp ./Code/iHex.h \
 	../../Lgi/trunk/include/common/GToken.h \
 	../../Lgi/trunk/include/common/GAbout.h \
-	./Code/resdefs.h \
+	./Resources/resdefs.h \
 	../../Lgi/trunk/include/common/GCombo.h \
 	../../Lgi/trunk/include/common/GScrollBar.h \
 	../../Lgi/trunk/include/common/GProgressDlg.h \
@@ -410,7 +413,7 @@ MapLex.o : ./Code/MapLex.cpp ../../Lgi/trunk/include/common/Lgi.h
 
 SearchDlg.o : ./Code/SearchDlg.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	./Code/iHex.h \
-	./Code/resdefs.h
+	./Resources/resdefs.h
 	@echo $(<F) [$(Build)]
 	$(CPP) $(Inc) $(Flags) $(Defs) -c $< -o $(BuildDir)/$(@F)
 
@@ -420,7 +423,7 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/LList.h \
 	../../Lgi/trunk/include/common/GUtf8.h \
 	../../Lgi/trunk/include/common/GLexCpp.h \
-	./Code/resdefs.h
+	./Resources/resdefs.h
 	@echo $(<F) [$(Build)]
 	$(CPP) $(Inc) $(Flags) $(Defs) -c $< -o $(BuildDir)/$(@F)
 
@@ -602,7 +605,8 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GToken.h \
 	../../Lgi/trunk/include/common/Gdc2.h \
 	../../Lgi/trunk/include/common/LgiCommon.h \
-	../../Lgi/trunk/include/common/GString.h
+	../../Lgi/trunk/include/common/GString.h \
+	../../Lgi/trunk/include/common/LDateTime.h
 
 ../../Lgi/trunk/src/linux/Gtk/Gdc2.cpp : ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GPalette.h
@@ -909,6 +913,8 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 
 ../../Lgi/trunk/include/common/GRadioGroup.h : 
 
+./Resources/resdefs.h : 
+
 ../../Lgi/trunk/include/common/GTextLabel.h : 
 
 ../../Lgi/trunk/src/common/Lgi/GFindReplace.cpp : ../../Lgi/trunk/include/common/Lgi.h \
@@ -966,7 +972,8 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 
 ../../Lgi/trunk/include/common/GEdit.h : ../../Lgi/trunk/include/common/GTextView3.h
 
-../../Lgi/trunk/include/common/GTextLog.h : ../../Lgi/trunk/include/common/GTextView3.h
+../../Lgi/trunk/include/common/GTextLog.h : ../../Lgi/trunk/include/common/GTextView3.h \
+	../../Lgi/trunk/include/common/INet.h
 
 ../../Lgi/trunk/src/common/General/GPassword.cpp : ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GPassword.h \
@@ -1336,8 +1343,6 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 
 ../../Lgi/trunk/src/common/General/GFileCommon.cpp : ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GVariant.h
-
-./Code/resdefs.h : 
 
 ../../Lgi/trunk/src/common/General/GContainers.cpp : ../../Lgi/trunk/include/common/GMem.h \
 	../../Lgi/trunk/include/common/GContainers.h \
@@ -1806,6 +1811,7 @@ VPATH=%.cpp \
 	../../Lgi/trunk/include/linux/Gtk \
 	./Code \
 	../../Lgi/trunk/src/common/Coding \
+	./Resources \
 	../../Lgi/trunk/include/common \
 	$(BuildDir)
 

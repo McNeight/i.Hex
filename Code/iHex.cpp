@@ -2745,9 +2745,8 @@ AppWnd::AppWnd() : GDocApp<GOptionsFile>(AppName, "MAIN")
 
 		OnDirty(false);
 		
-		#ifdef LINUX
-		GAutoString f(LgiFindFile("icon-32x32.png"));
-		printf("Fixme: add icon to window here...\n");
+		#ifndef WINDOWS
+		SetIcon("icon64.png");
 		#endif
 		
 		Visible(true);

@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Project>
+	<Node Name="Headers" Type="1" Platforms="15" Open="1" Id="4">
+		<Node File="./Code/Diff.h" Type="3" Platforms="15" />
+		<Node File="./Code/iHex.h" Type="3" Platforms="15" />
+	</Node>
 	<Node Name="Source" Type="1" Platforms="15" Open="1" Id="1">
 		<Node Name="Lgi" Type="1" Platforms="15" Open="1" Id="2">
 			<Node File="../../Lgi/trunk/src/common/Lgi/GAbout.cpp" Type="2" Platforms="15" />
@@ -21,10 +25,6 @@
 		<Node File="./Code/SearchDlg.cpp" Type="2" Platforms="15" />
 		<Node File="./Code/Visualiser.cpp" Type="2" Platforms="15" />
 	</Node>
-	<Node Name="Headers" Type="1" Platforms="15" Open="1" Id="4">
-		<Node File="./Code/Diff.h" Type="3" Platforms="15" />
-		<Node File="./Code/iHex.h" Type="3" Platforms="15" />
-	</Node>
 	<Node File="../../Lgi/trunk/Lgi.xml" Type="4" Platforms="15" />
 	<Settings>
 		<General>
@@ -40,14 +40,24 @@
 					<Release>./iHex</Release>
 				</Linux>
 			</Executable>
-			<Arguments />
-			<Defines />
+			<Arguments>
+				<All />
+			</Arguments>
+			<Defines>
+				<All />
+				<Linux />
+			</Defines>
+			<DebugAdmin />
+			<CCrossCompiler />
+			<CppCrossCompiler />
 		</General>
 		<Build>
 			<IncludePaths>
 				<All>
-					<Debug>../../Lgi/trunk/include/common</Debug>
-					<Release>../../Lgi/trunk/include/common</Release>
+					<Debug>../../Lgi/trunk/include/common
+./Resources</Debug>
+					<Release>../../Lgi/trunk/include/common
+./Resources</Release>
 				</All>
 				<Linux>
 					<Debug>../../Lgi/trunk/include/linux/Gtk
@@ -65,25 +75,16 @@
 					<Release>iHex</Release>
 				</Linux>
 			</TargetName>
-			<Libraries />
-			<LibraryPaths />
-			<SystemIncludes />
-		</Build>
-		<Editor>
-			<TabSize>
-				<All>4</All>
-			</TabSize>
-			<IndentSize>
-				<All>4</All>
-			</IndentSize>
-			<UseHardTabs>
-				<All>0</All>
-			</UseHardTabs>
-		</Editor>
-		<Advanced />
-	</Settings>
-</Project>
- />
+			<Libraries>
+				<All />
+				<Linux />
+			</Libraries>
+			<LibraryPaths>
+				<All />
+				<Linux />
+			</LibraryPaths>
+			<SystemIncludes>
+				<Linux />
 			</SystemIncludes>
 			<ApplicationIcon />
 		</Build>
@@ -106,4 +107,10 @@
 			<PostBuildCommands />
 		</Advanced>
 	</Settings>
+	<Node Name="Build" Type="1" Platforms="15" Id="1">
+		<Node File="./installer-zip.py" Type="8" Platforms="15" />
+		<Node File="./installer.make" Type="8" Platforms="15" />
+		<Node File="./installer.nsi" Type="8" Platforms="15" />
+		<Node File="./Makefile.linux" Type="9" Platforms="15" />
+	</Node>
 </Project>
