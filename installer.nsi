@@ -1,13 +1,13 @@
 ; i.Hex install/uninstall support
 
-; !system "mkdir ihex-setup"
+!system "mkdir ihex-setup"
 ; !system "del .\ihex-setup\*.*"
 
-; !system "copy ..\..\Lgi\trunk\Release\Lgi.dll ihex-setup"
-; !system "copy .\Release\iHex.exe ihex-setup"
+!system "copy ..\..\Lgi\trunk\Lib\Lgi12x64.dll ihex-setup"
+!system "copy .\x64Release12\iHex.exe ihex-setup"
 
-; !system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
-; !system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.dll'
+!system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.exe'
+!system '"c:\Program Files\Upx\upx.exe" -9 .\ihex-setup\*.dll'
 
 ;--------------------------------
 SetCompressor lzma
@@ -16,10 +16,10 @@ SetCompressor lzma
 Name "Memecode i.Hex"
 
 ; The file to write
-OutFile "ihex-win32.exe"
+OutFile "ihex-win64-v###.exe"
 
 ; The default installation directory
-InstallDir $PROGRAMFILES\Memecode\i.Hex
+InstallDir $PROGRAMFILES64\Memecode\i.Hex
 
 ;--------------------------------
 
@@ -38,19 +38,21 @@ Section ""
   SetOutPath $INSTDIR
   
   ; Program files
-  File .\Win32Release12\iHex.exe
-  File ..\..\Lgi\trunk\lib\Lgi12x32.dll
+  File .\ihex-setup\iHex.exe
+  File .\ihex-setup\Lgi12x64.dll
 
   ; Resources
-  File .\Code\ihex.lr8
-  File .\Code\MapCmds.gif
-  File .\Code\Tools.gif
+  File .\Resources\ihex.lr8
+  File .\Resources\MapCmds.gif
+  File .\Resources\Tools.gif
+
+  ; Example map files
+  SetOutPath $INSTDIR\Maps
+  File .\Maps\Jpeg.map
 
   ; Help files
   SetOutPath $INSTDIR\Help
-  File .\Help\ihex.css
-  File .\Help\index.html
-  File .\Help\visual.html
+  File .\Help\*.*
 
   ; Uninstaller
   WriteUninstaller $INSTDIR\uninstall.exe
@@ -61,7 +63,7 @@ Section "Start Menu Shortcuts"
 
   CreateDirectory "$SMPROGRAMS\i.Hex"
   CreateShortCut "$SMPROGRAMS\i.Hex\i.Hex.lnk" "$INSTDIR\iHex.exe" "" "$INSTDIR\iHex.exe" 0
-  CreateShortCut "$SMPROGRAMS\i.Hex\Help.lnk" "$INSTDIR\Help\index.html" "" "$WINDIR\WINHLP32.EXE" 1
+  CreateShortCut "$SMPROGRAMS\i.Hex\Help.lnk" "$INSTDIR\Help\index.html" "" "" 1
   CreateShortCut "$SMPROGRAMS\i.Hex\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
   
 SectionEnd
@@ -90,6 +92,6 @@ Section "un.Program and Start Menu Items"
 SectionEnd
 
 ; Clean up temp files
-!system "del /Q .\ihex-setup\*.*"
-!system "rmdir ihex-setup"
+;!system "del /Q .\ihex-setup\*.*"
+;!system "rmdir ihex-setup"
 

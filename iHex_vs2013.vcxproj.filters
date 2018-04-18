@@ -11,13 +11,15 @@
     <Filter Include="Source Files\Scripting">
       <UniqueIdentifier>{5636adf2-984b-46a0-8461-80ca73095b95}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Build">
+      <UniqueIdentifier>{fe41320b-c38a-4439-9d52-68e1a56d60a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Maps">
+      <UniqueIdentifier>{853c30b0-9ff1-447b-a326-8a74a83a9289}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -95,5 +97,16 @@
     <MASM Include="..\..\Lgi\trunk\src\common\Coding\ExternCall.asm">
       <Filter>Source Files\Scripting</Filter>
     </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Maps\Jpeg.map">
+      <Filter>Maps</Filter>
+    </None>
+    <None Include="installer.make">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="installer.nsi">
+      <Filter>Build</Filter>
+    </None>
   </ItemGroup>
 </Project>
