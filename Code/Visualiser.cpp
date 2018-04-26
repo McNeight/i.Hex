@@ -11,6 +11,12 @@
 
 #define MAX_STR_DISPLAY			64
 
+// These limits can be undefined to removed them temporarily:
+
+// #define MAX_ARRAY				1000
+// #define MAX_EXECUTION_TIME		1000 // ms
+#define MAX_OUTPUT_SIZE			(256 << 10) // 256 kb
+
 enum BaseType
 {
 	TypeNull,
@@ -102,12 +108,15 @@ struct BitReference
 		return true;
 	}
 	
-	bool Seek(Basic *b)
+	bool Seek(Basic *b, int ArrayLen = -1)
 	{
+		if (ArrayLen < 0)
+			ArrayLen = 1;
+
 		if (b->Bits)
 		{
 			int WordSize = b->Bytes << 3;
-			Bit += b->Bits;
+			Bit += b->Bits * ArrayLen;
 			if (Bit >= WordSize)
 			{
 				Bit -= WordSize;
@@ -117,8 +126,9 @@ struct BitReference
 		}
 		else
 		{
-			Ptr += b->Bytes;
-			Len -= b->Bytes;
+			int Bytes = b->Bytes * ArrayLen;
+			Ptr += Bytes;
+			Len -= Bytes;
 		}
 		
 		return true;
@@ -886,7 +896,7 @@ public:
 					}
 				}
 
-				Addr.Seek(c->Type->Base);
+				Addr.Seek(c->Type->Base, c->Type->ResolvedLength);
 			}
 		}
 	
@@ -925,6 +935,15 @@ public:
 
 		return NULL;
 	}
+
+	GDom *GetReference(BitReference &Addr, bool Little)
+	{
+		LgiAssert(Addr.Ptr != NULL);
+		EvalAddr = Addr;
+		EvalLittle = Little;
+		return this;
+	}
+
 
 	bool Match(BitReference &Addr, bool Little)
 	{
@@ -1057,6 +1076,7 @@ class StructureMap : public LListItem, public GDom
 
 	bool Little;
 	char Tabs[256];
+	uint64 StartTs;
 
 	struct ScopeType
 	{
@@ -1120,7 +1140,17 @@ public:
 				{
 					if (Var->Name && strcmp(Var->Name, Name) == 0)
 					{
-						Value = Var->CastInt(s.Addr[n], Little);
+						LgiAssert(s.Addr.Length() > n);
+
+						if (Var->Type &&
+							Var->Type->Cmplex)
+						{
+							Value = Var->Type->Cmplex->GetReference(s.Addr[n], Little);
+						}
+						else
+						{
+							Value = Var->CastInt(s.Addr[n], Little);
+						}
 						return true;
 					}
 				}
@@ -1201,7 +1231,7 @@ public:
 		return Ref.ReadBits(Out, Bits);
 	}
 	
-	bool DoInt(VarDef *d, ViewContext &View, int &ArrayLength)
+	bool DoInt(VarDef *d, ViewContext &View, ssize_t &ArrayLength)
 	{
 		Basic *b = d->Type->Base;
 		if (!d->Hidden)
@@ -1332,7 +1362,7 @@ public:
 		return true;
 	}
 	
-	bool DoFloat(VarDef *d, ViewContext &View, int &ArrayLength)
+	bool DoFloat(VarDef *d, ViewContext &View, ssize_t &ArrayLength)
 	{
 		Basic *b = d->Type->Base;
 		if (!d->Hidden)
@@ -1425,7 +1455,7 @@ public:
 		return true;
 	}
 
-	bool DoNibble(VarDef *d, ViewContext &View, int &ArrayLength)
+	bool DoNibble(VarDef *d, ViewContext &View, ssize_t &ArrayLength)
 	{
 		Basic *b = d->Type->Base;
 		if (!d->Hidden)
@@ -1496,7 +1526,7 @@ public:
 		return true;
 	}
 	
-	bool DoString(VarDef *d, ViewContext &View, int &ArrayLength)
+	bool DoString(VarDef *d, ViewContext &View, ssize_t &ArrayLength)
 	{
 		if (!d->Hidden)
 		{
@@ -1555,7 +1585,7 @@ public:
 		return true;
 	}
 	
-	bool DoStrZ(VarDef *d, ViewContext &View, int &ArrayLength)
+	bool DoStrZ(VarDef *d, ViewContext &View, ssize_t &ArrayLength)
 	{
 		if (!d->Hidden && (d->Type->Base->Bytes < 8))
 		{
@@ -1649,18 +1679,27 @@ public:
 
 	bool DoMember(Member *Mem, ViewContext &View, ScopeType &Scope, int Depth)
 	{
-		if (!Mem)
+		int64 Sz = View.Out.GetSize();
+		uint64 Time = LgiCurrentTime() - StartTs;
+		if (!Mem ||
+			#ifdef MAX_EXECUTION_TIME
+			Time >= MAX_EXECUTION_TIME ||
+			#endif
+			#ifdef MAX_OUTPUT_SIZE
+			Sz >= MAX_OUTPUT_SIZE
+			#endif
+			)
 			return false;
 
 		ConditionDef *c;
 		VarDef *d = Mem->IsVar();
 		if (d)
 		{
-			int ArrayLength = 1;
+			d->Type->ResolvedLength = 1;
 			if (d->Type->Length.Length())
 			{
 				GArray<char*> DimStr;
-				ArrayLength = -1; // Unknown
+				d->Type->ResolvedLength = -1; // Unknown
 				for (unsigned dim = 0; dim < d->Type->Length.Length(); dim++)
 				{
 					GStringPipe p;
@@ -1682,16 +1721,20 @@ public:
 					GVariant v;
 					if (e.EvaluateExpression(&v, this, DimStr[0]))
 					{
-						ArrayLength = v.CastInt32();
+						d->Type->ResolvedLength = v.CastInt32();
+						#ifdef MAX_ARRAY
+						if (ArrayLength > MAX_ARRAY)
+							ArrayLength = MAX_ARRAY;
+						#endif
 
-						if (ArrayLength < 0)
-							ArrayLength = 0;
+						if (d->Type->ResolvedLength < 0)
+							d->Type->ResolvedLength = 0;
 
 						BitReference Sz;
 						Sz.Len = INT32_MAX;
 						d->Sizeof(Sz);
-						if (ArrayLength * Sz.AlignedSize() > View.Len)
-							ArrayLength = View.Len / Sz.AlignedSize();
+						if (d->Type->ResolvedLength * Sz.AlignedSize() > View.Len)
+							d->Type->ResolvedLength = View.Len / Sz.AlignedSize();
 					}
 					else
 					{
@@ -1704,8 +1747,6 @@ public:
 
 			if (d->Type->Base)
 			{
-				Scope.Addr[Scope.Pos] = View;
-
 				Basic *b = d->Type->Base;
 				switch (b->Type)
 				{
@@ -1714,31 +1755,31 @@ public:
 						break;
 					case TypeInteger:
 					{
-						if (!DoInt(d, View, ArrayLength))
+						if (!DoInt(d, View, d->Type->ResolvedLength))
 							return false;
 						break;
 					}
 					case TypeFloat:
 					{
-						if (!DoFloat(d, View, ArrayLength))
+						if (!DoFloat(d, View, d->Type->ResolvedLength))
 							return false;
 						break;
 					}
 					case TypeNibble:
 					{
-						if (!DoNibble(d, View, ArrayLength))
+						if (!DoNibble(d, View, d->Type->ResolvedLength))
 							return false;
 						break;
 					}
 					case TypeChar:
 					{
-						if (!DoString(d, View, ArrayLength))
+						if (!DoString(d, View, d->Type->ResolvedLength))
 							return false;
 						break;
 					}
 					case TypeStrZ:
 					{
-						if (!DoStrZ(d, View, ArrayLength))
+						if (!DoStrZ(d, View, d->Type->ResolvedLength))
 							return false;
 						break;
 					}
@@ -1755,20 +1796,20 @@ public:
 				}
 
 				int Offset = View.Offset();
-				if (sub && ArrayLength == 1)
+				if (sub && d->Type->ResolvedLength == 1)
 					View.Out.Print("%s%s.%s", Tabs, sub->Name.Get(), d->Name);
 				else
 					View.Out.Print("%s%s", Tabs, d->Name);
-				if (ArrayLength > 1 || ArrayLength == 0)
-					View.Out.Print("[%i]", ArrayLength);
-				else if (ArrayLength < 0)
+				if (d->Type->ResolvedLength > 1 || d->Type->ResolvedLength == 0)
+					View.Out.Print("[%i]", d->Type->ResolvedLength);
+				else if (d->Type->ResolvedLength < 0)
 					View.Out.Print("[]");
 				View.Out.Print(" (@ %i/0x%x) =\n", Offset, Offset);
 				
-				if (ArrayLength == 1)
+				if (d->Type->ResolvedLength == 1)
 					View.Out.Print("%s{\n", Tabs);
 				
-				for (int i=0; (ArrayLength < 0 || i < ArrayLength) && View.Len > 0; i++)
+				for (int i=0; (d->Type->ResolvedLength < 0 || i < d->Type->ResolvedLength) && View.Len > 0; i++)
 				{
 					s = d->Type->Cmplex;
 					if (i)
@@ -1776,13 +1817,13 @@ public:
 					if (sub)
 						s = sub;
 
-					if (ArrayLength != 1)
+					if (d->Type->ResolvedLength != 1)
 					{
 						Offset = View.Offset();
 						View.Out.Print("%s  [%i] (%s @ %i/0x%x)\n", Tabs, i, s->Name.Get(), Offset, Offset);
 					}
 
-					if (!DoStruct(s, View, Little, Depth + 1 + (ArrayLength != 1 ? 1 : 0)))
+					if (!DoStruct(s, View, Little, Depth + 1 + (d->Type->ResolvedLength != 1 ? 1 : 0)))
 					{
 						return false;
 					}
@@ -1790,7 +1831,7 @@ public:
 					SetTabs(Depth);
 				}
 				
-				if (ArrayLength == 1)
+				if (d->Type->ResolvedLength == 1)
 					View.Out.Print("%s}\n", Tabs);
 			}
 		}
@@ -1854,6 +1895,7 @@ public:
 		for (Scope.Pos=0; Scope.Pos<s->Members.Length() && View.Len > 0; Scope.Pos++)
 		{
 			Member *Mem = s->Members[Scope.Pos];
+			Scope.Addr[Scope.Pos] = View;
 			if (!DoMember(Mem, View, Scope, Depth))
 			{
 				Error = true;
@@ -1867,6 +1909,8 @@ public:
 
 	void Visualise(char *Data, int Len, GStream &Out, bool Little)
 	{
+		StartTs = LgiCurrentTime();
+
 		StructDef *Main = GetStruct("Main");
 		if (Main)
 		{
