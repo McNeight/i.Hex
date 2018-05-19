@@ -889,6 +889,7 @@ public:
 							else LgiAssert(!"What?");
 							break;
 						}
+						default:
 						case TypeStrZ:
 						{
 							break;
@@ -1680,7 +1681,7 @@ public:
 	bool DoMember(Member *Mem, ViewContext &View, ScopeType &Scope, int Depth)
 	{
 		int64 Sz = View.Out.GetSize();
-		uint64 Time = LgiCurrentTime() - StartTs;
+		// uint64 Time = LgiCurrentTime() - StartTs;
 		if (!Mem ||
 			#ifdef MAX_EXECUTION_TIME
 			Time >= MAX_EXECUTION_TIME ||
@@ -1790,11 +1791,6 @@ public:
 				StructDef *s = d->Type->Cmplex;
 				StructDef *sub = s->MatchChild(View, Little);
 
-				if (d->Debug)
-				{
-					int asd=0;
-				}
-
 				int Offset = View.Offset();
 				if (sub && d->Type->ResolvedLength == 1)
 					View.Out.Print("%s%s.%s", Tabs, sub->Name.Get(), d->Name);
@@ -1835,7 +1831,7 @@ public:
 					View.Out.Print("%s}\n", Tabs);
 			}
 		}
-		else if (c = Mem->IsCondition())
+		else if ((c = Mem->IsCondition()))
 		{
 			GStringPipe p;
 			for (unsigned n=0; n<c->Expression.Length(); n++)
@@ -2240,7 +2236,7 @@ public:
 			// Array
 			ArrayDimension &ad = Var->Type->Length.New();
 			int Depth = 0;
-			while (t = State.NextW(false))
+			while ((t = State.NextW(false)))
 			{
 				if (!XCmp(t, "["))
 				{
@@ -2387,7 +2383,7 @@ public:
 								if (!c)
 									break;
 								
-								while (t = State.NextW(false))
+								while ((t = State.NextW(false)))
 								{
 									if (!XCmp(t, ")"))
 									{
@@ -2400,7 +2396,7 @@ public:
 								t = State.NextW();
 								CheckTok("{");
 								
-								while (t = State.NextW())
+								while ((t = State.NextW()))
 								{
 									if (!XCmp(t, "}"))
 									{

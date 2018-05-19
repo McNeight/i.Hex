@@ -924,8 +924,8 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 		{
 			// Paint the selection into the colour buffers
 			int64 DocPos = BufPos + LineStart;
-			int64 Min = View->HasSelection() ? min(View->Selection.Index, View->Cursor.Index) : -1;
-			int64 Max = View->HasSelection() ? max(View->Selection.Index, View->Cursor.Index) : -1;
+			int64 Min = View->HasSelection() ? MIN(View->Selection.Index, View->Cursor.Index) : -1;
+			int64 Max = View->HasSelection() ? MAX(View->Selection.Index, View->Cursor.Index) : -1;
 			if (Min < DocPos + View->BytesPerLine &&
 				Max >= DocPos)
 			{
@@ -1159,8 +1159,8 @@ void GHexView::Copy(FormatType Fmt)
 	GClipBoard c(this);
 	GHexBuffer *b = Buf[0];
 
-	int64 Min = min(Selection.Index, Cursor.Index);
-	int64 Max = max(Selection.Index, Cursor.Index);
+	int64 Min = MIN(Selection.Index, Cursor.Index);
+	int64 Max = MAX(Selection.Index, Cursor.Index);
 	int64 Len = Max - Min + 1;
 
 	if (b->GetData(Min, Len))
@@ -1353,7 +1353,7 @@ bool GHexView::GetDataAtCursor(char *&Data, int &Len)
 	{
 		int Offset = Cursor.Index - b->BufPos;
 		Data = (char*)b->Buf + Offset;
-		Len = min(b->BufUsed, b->BufLen) - Offset;
+		Len = MIN(b->BufUsed, b->BufLen) - Offset;
 		return true;
 	}
 
@@ -1393,8 +1393,8 @@ void GHexView::InvalidateLines(GArray<GRect> &NewLoc, GArray<GRect> &OldLoc)
 	if (NewLoc.Length() > 0 && OldLoc.Length() > 0)
 	{
 		// Work out the union of NewLoc and OldLoc
-		int MinY = min(NewLoc[0].y1, OldLoc[0].y1);
-		int MaxY = max(NewLoc[0].y2, OldLoc[0].y2);
+		int MinY = MIN(NewLoc[0].y1, OldLoc[0].y1);
+		int MaxY = MAX(NewLoc[0].y2, OldLoc[0].y2);
 		GRect u(0, MinY, X()-1, MaxY);
 		Invalidate(&u);
 	}
@@ -1472,7 +1472,7 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 		{
 			int64 Start = (uint64) (VScroll ? VScroll->Value() : 0) * 16;
 			int Lines = GetClient().Y() / CharSize.y;
-			int64 End = min(b->Size, Start + (Lines * 16));
+			int64 End = MIN(b->Size, Start + (Lines * 16));
 			if (Cursor.Index < Start)
 			{
 				// Scroll up
@@ -1571,7 +1571,7 @@ void GHexView::DoSearch(SearchDlg *For)
 	// Search through to the end of the file...
 	for (c = Cursor.Index + 1; c < b->Size; c += Block)
 	{
-		int Actual = min(Block, GetFileSize() - c);
+		int Actual = MIN(Block, GetFileSize() - c);
 		if (b->GetData(c, Actual))
 		{
 			Hit = Search(For, b->Buf + (c - b->BufPos), Actual);
@@ -1612,7 +1612,7 @@ void GHexView::DoSearch(SearchDlg *For)
 		{
 			if (b->GetData(c, Block))
 			{
-				int Actual = min(Block, Cursor.Index - c);
+				int Actual = MIN(Block, Cursor.Index - c);
 				Hit = Search(For, b->Buf + (c - b->BufPos), Actual);
 				if (Hit >= 0)
 				{
@@ -2000,7 +2000,7 @@ bool GHexView::SaveFile(GHexBuffer *b, char *FileName)
 		{
 			if (b->File->Seek(b->BufPos, SEEK_SET) == b->BufPos)
 			{
-				int Len = min(b->BufLen, b->Size - b->BufPos);
+				int Len = MIN(b->BufLen, b->Size - b->BufPos);
 				Status = b->File->Write(b->Buf, Len) == Len;
 			}
 		}
@@ -2030,8 +2030,8 @@ void GHexView::SaveSelection(GHexBuffer *b, char *FileName)
 		if (HasSelection() &&
 			f.Open(FileName, O_WRITE))
 		{
-			int64 Min = min(Selection.Index, Cursor.Index);
-			int64 Max = max(Selection.Index, Cursor.Index);
+			int64 Min = MIN(Selection.Index, Cursor.Index);
+			int64 Max = MAX(Selection.Index, Cursor.Index);
 			int64 Len = Max - Min + 1;
 
 			f.SetSize(Len);
@@ -2041,7 +2041,7 @@ void GHexView::SaveSelection(GHexBuffer *b, char *FileName)
 			for (int64 i=0; i<Len; i+=Block)
 			{
 				int64 AbsPos = Min + i;
-				int64 Bytes = min(Block, Len - i);
+				int64 Bytes = MIN(Block, Len - i);
 				if (b->GetData(AbsPos, Bytes))
 				{
 					uchar *p = b->Buf + (AbsPos - b->BufPos);
@@ -2068,8 +2068,8 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 		return;
 
 	GHexBuffer *b = Cursor.Buf;
-	int64 Min = min(Selection.Index, Cursor.Index);
-	int64 Max = max(Selection.Index, Cursor.Index);
+	int64 Min = MIN(Selection.Index, Cursor.Index);
+	int64 Max = MAX(Selection.Index, Cursor.Index);
 	int64 Len = Max - Min + 1;
 
 	if (b->File)
@@ -2095,7 +2095,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 
 		for (int64 i=0; !Dlg.IsCancelled() && i<Len; i+=Buf.Length())
 		{
-			int64 Remain = min(Buf.Length(), Len-i);
+			int64 Remain = MIN(Buf.Length(), Len-i);
 
 			#if 0
 			if (Rnd->Read(&Buf[0], Remain) != Remain)
@@ -2263,7 +2263,7 @@ void GHexView::OnPaint(GSurface *pDC)
 		Ds.Draw(pDC, r.x1, r.y1);
 		TopMargin.Subtract(&r);
 	
-		int64 End = min(b->Size, Start + (Lines * BytesPerLine));
+		int64 End = MIN(b->Size, Start + (Lines * BytesPerLine));
 		if (b->GetData(Start, End-Start))
 		{
 			GHexBuffer *Comp = Buf.Length() > 1 ? Buf[!BufIdx] : NULL;
@@ -2355,7 +2355,7 @@ void GHexView::OnMouseClick(GMouse &m)
 			GHexCursor c;
 			if (GetCursorFromLoc(m.x, m.y, c))
 			{
-				int Idx = Buf.IndexOf(c.Buf);
+				// int Idx = Buf.IndexOf(c.Buf);
 				SetCursor(c.Buf, c.Index, c.Nibble, m.Shift());
 				Cursor.Pane = c.Pane;
 			}
