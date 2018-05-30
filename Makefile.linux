@@ -17,7 +17,7 @@ BuildDir = $(Build)
 Flags = -fPIC -w -fno-inline -fpermissive
 
 ifeq ($(Build),Debug)
-	Flags += -g
+	Flags += -g -std=c++11
 	Tag = d
 	Defs = -D_DEBUG -DLINUX -D_REENTRANT -D_FILE_OFFSET_BITS=64 -DPOSIX
 	Libs =  \
@@ -31,7 +31,7 @@ ifeq ($(Build),Debug)
 		-I./Resources \
 		`pkg-config --cflags gtk+-2.0`
 else
-	Flags += -s -Os
+	Flags += -s -Os -std=c++11
 	Defs = -DLINUX -D_REENTRANT -D_FILE_OFFSET_BITS=64 -DPOSIX
 	Libs =  \
 		-llgi$(Tag) \
@@ -558,6 +558,7 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GContainers.h \
 	../../Lgi/trunk/include/common/GCapabilities.h \
 	../../Lgi/trunk/include/common/GRefCount.h \
+	../../Lgi/trunk/include/common/GPalette.h \
 	../../Lgi/trunk/include/common/GLibrary.h \
 	../../Lgi/trunk/include/common/GColourSpace.h \
 	../../Lgi/trunk/include/common/GRect.h \
@@ -738,6 +739,7 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GToken.h \
 	../../Lgi/trunk/include/common/GPopup.h \
 	../../Lgi/trunk/include/common/GPanel.h \
+	../../Lgi/trunk/include/common/GNotifications.h \
 	../../Lgi/trunk/include/linux/Gtk/LgiWidget.h
 
 ../../Lgi/trunk/include/common/GFontSelect.h : 
@@ -1050,6 +1052,7 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GContainers.h \
 	../../Lgi/trunk/include/common/GCapabilities.h \
 	../../Lgi/trunk/include/common/GRefCount.h \
+	../../Lgi/trunk/include/common/GPalette.h \
 	../../Lgi/trunk/include/common/GLibrary.h \
 	../../Lgi/trunk/include/common/GColourSpace.h \
 	../../Lgi/trunk/include/common/GRect.h \
@@ -1135,7 +1138,8 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 ../../Lgi/trunk/include/common/GPrinter.h : 
 
 ../../Lgi/trunk/src/common/Lgi/GToolTip.cpp : ../../Lgi/trunk/include/common/Lgi.h \
-	../../Lgi/trunk/include/common/GDisplayString.h
+	../../Lgi/trunk/include/common/GDisplayString.h \
+	../../Lgi/trunk/include/common/GPopup.h
 
 ../../Lgi/trunk/src/common/Gdc2/GRopsCases.cpp : 
 
@@ -1605,6 +1609,7 @@ Visualiser.o : ./Code/Visualiser.cpp ../../Lgi/trunk/include/common/Lgi.h \
 	../../Lgi/trunk/include/common/GCss.h \
 	../../Lgi/trunk/include/common/LgiRes.h \
 	../../Lgi/trunk/include/common/GEventTargetThread.h \
+	../../Lgi/trunk/include/common/GPopup.h \
 	../../Lgi/trunk/include/linux/Gtk/LgiWidget.h
 
 ../../Lgi/trunk/include/common/GFilter.h : ../../Lgi/trunk/include/common/GContainers.h
