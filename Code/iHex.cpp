@@ -252,7 +252,7 @@ public:
 				Size = GetBytes();
 
 				char s[64];
-				sprintf(s, "("LGI_PrintfInt64" bytes)", GetBytes());
+				sprintf(s, "(" LGI_PrintfInt64 " bytes)", GetBytes());
 				SetCtrlName(IDC_BYTE_SIZE, s);
 				break;
 			}
