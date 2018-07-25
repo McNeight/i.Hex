@@ -1151,53 +1151,68 @@ void GHexView::SetIsHex(bool i)
 
 void GHexView::Copy(FormatType Fmt)
 {
-	if (!HasSelection() ||
-		Buf.Length() == 0 ||
-		!Buf[0])
+	if (Buf.Length() == 0 || !Buf[0])
+	{
+		LgiMsg(this, "Error: No buffer to copy.", AppName);
 		return;
+	}
 
 	GClipBoard c(this);
 	GHexBuffer *b = Buf[0];
 
-	int64 Min = MIN(Selection.Index, Cursor.Index);
-	int64 Max = MAX(Selection.Index, Cursor.Index);
+	int64 Min, Max;
+	if (HasSelection())
+	{
+		Min = MIN(Selection.Index, Cursor.Index);
+		Max = MAX(Selection.Index, Cursor.Index);
+	}
+	else
+	{
+		Min = 0;
+		Max = Buf[0]->Size - 1;
+	}
+
 	int64 Len = Max - Min + 1;
 
-	if (b->GetData(Min, Len))
+	if (!b->GetData(Min, Len))
 	{
-		uint64 Offset = Min - b->BufPos;
-		uchar *Ptr = b->Buf + Offset;
-		
-		if (Len > b->BufUsed - Offset)
-		{
-			Len = b->BufUsed - Offset;
-		}
-
-		GStringPipe p;
-		if (Fmt == FmtCode)
-			p.Print("unsigned char Var[] = {\n\t");
-		
-		for (int i=0; i<Len; i++)
-		{
-			if (Fmt == FmtHex)
-				p.Print("%s%2.2X", i ? " " : "", Ptr[i]);
-			else if (Fmt == FmtCode)
-				p.Print("0x%2.2X%s", Ptr[i], i == Len-1 ? "" : ",");
-			else
-				p.Print("%c", Ptr[i]);
-
-			if (Fmt == FmtCode && i % 32 == 31)
-				p.Print("\n\t");
-		}
-		if (Fmt == FmtCode)
-			p.Print("\n};\n");
-		GAutoString str(p.NewStr());
-	
-		#ifdef WIN32
-		c.Binary(CF_PRIVATEFIRST, Ptr, Len, true);
-		#endif
-		c.Text(str, false);
+		LgiMsg(this, "Error: Failed to get source buffer.", AppName);
+		return;
 	}
+
+	uint64 Offset = Min - b->BufPos;
+	uchar *Ptr = b->Buf + Offset;
+		
+	if (Len > b->BufUsed - Offset)
+	{
+		Len = b->BufUsed - Offset;
+	}
+
+	GStringPipe p;
+	if (Fmt == FmtCode)
+		p.Print("unsigned char Var[] = {\n\t");
+		
+	int64 i;
+	for (i=0; i<Len; i++)
+	{
+		if (Fmt == FmtHex)
+			p.Print("%s%2.2X", i ? " " : "", Ptr[i]);
+		else if (Fmt == FmtCode)
+			p.Print("0x%2.2X%s", Ptr[i], i == Len-1 ? "" : ",");
+		else
+			p.Print("%c", Ptr[i]);
+
+		if (Fmt == FmtCode && i % 32 == 31)
+			p.Print("\n\t");
+	}
+	if (Fmt == FmtCode)
+		p.Print("\n};\n");
+	GAutoString str(p.NewStr());
+	
+	#ifdef WIN32
+	c.Binary(CF_PRIVATEFIRST, Ptr, Len, true);
+	#endif
+	c.Text(str, false);
 }
 
 void GHexView::Paste(FormatType Fmt)
