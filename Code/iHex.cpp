@@ -170,7 +170,7 @@ public:
 			case 0:
 			{
 				char s[64];
-				sprintf(s, LGI_PrintfInt64, size);
+				sprintf(s, LPrintfInt64, size);
 				SetCtrlName(IDC_NUMBER, s);
 				break;
 			}
@@ -252,7 +252,7 @@ public:
 				Size = GetBytes();
 
 				char s[64];
-				sprintf(s, "(" LGI_PrintfInt64 " bytes)", GetBytes());
+				sprintf(s, "(" LPrintfInt64 " bytes)", GetBytes());
 				SetCtrlName(IDC_BYTE_SIZE, s);
 				break;
 			}
@@ -619,7 +619,7 @@ bool GHexBuffer::Save()
 
 	if (File->SetPos(BufPos) != BufPos)
 	{
-		LgiTrace("%s:%i - Failed to set pos: " LGI_PrintfInt64 ".\n", _FL, BufPos);
+		LgiTrace("%s:%i - Failed to set pos: " LPrintfInt64 ".\n", _FL, BufPos);
 		return false;
 	}
 
