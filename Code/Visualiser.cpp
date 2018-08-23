@@ -2,7 +2,6 @@
 #include "GToken.h"
 #include "iHex.h"
 #include "LList.h"
-#include "GUtf8.h"
 #include "GLexCpp.h"
 #include "resdefs.h"
 #ifndef INT32_MAX
