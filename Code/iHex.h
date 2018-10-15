@@ -149,7 +149,7 @@ class GVisualiseView : public GSplitter
 	AppWnd *App;
 	class GMapWnd *Map;
 	GTextView3 *Txt;
-	char Base[300];
+	char Base[MAX_PATH];
 
 public:
 	GVisualiseView(AppWnd *app, char *DefVisual = NULL);

@@ -10,7 +10,7 @@
 
 #define MAX_STR_DISPLAY			64
 
-// These limits can be undefined to removed them temporarily:
+// These limits can be undefined to remove them temporarily:
 
 // #define MAX_ARRAY				1000
 // #define MAX_EXECUTION_TIME		1000 // ms
@@ -2088,7 +2088,7 @@ public:
 			v->Base->Type = TypeInteger;
 			t += 4;
 
-			int Bits = Atoi(t);
+			auto Bits = Atoi(t);
 			if (Bits == 8)
 				v->Base->Bytes = 1;
 			else if (Bits == 16)
@@ -2605,6 +2605,35 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////////
+#ifdef MAC
+GString ResourcesFld()
+{
+	char Base[MAX_PATH] = "";
+	LgiGetExeFile(Base, sizeof(Base));
+	LgiMakePath(Base, sizeof(Base), Base, "Contents/Resources");
+	return Base;
+}
+
+GString MapFld()
+{
+	char Base[MAX_PATH] = "";
+	LgiGetSystemPath(LSP_APP_ROOT, Base, sizeof(Base));
+	if (!DirExists(Base))
+		FileDev->CreateFolder(Base);
+	LgiMakePath(Base, sizeof(Base), Base, "Maps");
+	if (!DirExists(Base))
+		FileDev->CreateFolder(Base);
+	return Base;
+}
+#else
+GString MapFld()
+{
+	char Base[MAX_PATH] = "";
+	LgiGetSystemPath(LSP_APP_INSTALL, Base, sizeof(Base));
+	return Base;
+}
+#endif
+
 GVisualiseView::GVisualiseView(AppWnd *app, char *DefVisual)
 {
 	App = app;
@@ -2615,8 +2644,32 @@ GVisualiseView::GVisualiseView(AppWnd *app, char *DefVisual)
 	SetViewA(Map = new GMapWnd, false);
 	SetViewB(Txt = new GTextView3(80, 0, 0, 100, 100), true);
 	
-	if (LgiGetSystemPath(LSP_APP_INSTALL, Base, sizeof(Base)))
+	#ifdef MAC
+	auto Res = ResourcesFld();
+	auto Maps = MapFld();
+	if (Maps)
 	{
+		GDirectory d;
+		for (auto b = d.First(Res); b; b = d.Next())
+		{
+			if (d.IsDir()) continue;
+			auto e = LgiGetExtension(d.GetName());
+			if (e && !stricmp(e, "map"))
+			{
+				GFile::Path p(Maps);
+				p += d.GetName();
+				if (!p.Exists())
+					FileDev->Copy(d.FullPath(), p.GetFull());
+			}
+		}
+		
+	#else
+	auto Maps = MapFld();
+	if (Maps)
+	{
+	#endif
+		strcpy_s(Base, sizeof(Base), Maps);
+
 		GArray<char*> Files;
 		GArray<const char*> Ext;
 		Ext.Add("*.map");

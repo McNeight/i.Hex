@@ -29,6 +29,7 @@
 		348335D41AA190DD006BD4F9 /* Lgi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 348335D31AA190D2006BD4F9 /* Lgi.framework */; };
 		348335D51AA190E1006BD4F9 /* Lgi.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 348335D31AA190D2006BD4F9 /* Lgi.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		348335D71AA197E3006BD4F9 /* GLexCpp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 348335D61AA197E3006BD4F9 /* GLexCpp.cpp */; };
+		3488006D21753DD2008DBBF6 /* Jpeg.map in Resources */ = {isa = PBXBuildFile; fileRef = 3488006C21753AE8008DBBF6 /* Jpeg.map */; };
 		8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */; };
 		8D0C4E8E0486CD37000505A6 /* main.nib in Resources */ = {isa = PBXBuildFile; fileRef = 02345980000FD03B11CA0E72 /* main.nib */; };
 		8D0C4E920486CD37000505A6 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20286C33FDCF999611CA2CEA /* Carbon.framework */; };
@@ -85,6 +86,7 @@
 		34640D6C12D5DE7400B207F4 /* mac-icon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = "mac-icon.icns"; path = "Resources/mac-icon.icns"; sourceTree = "<group>"; };
 		348335CE1AA190D1006BD4F9 /* LgiCarbon.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = LgiCarbon.xcodeproj; path = ../../Lgi/trunk/src/mac/carbon/LgiCarbon.xcodeproj; sourceTree = "<group>"; };
 		348335D61AA197E3006BD4F9 /* GLexCpp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GLexCpp.cpp; path = ../../Lgi/trunk/src/common/Coding/GLexCpp.cpp; sourceTree = "<group>"; };
+		3488006C21753AE8008DBBF6 /* Jpeg.map */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = Jpeg.map; path = Maps/Jpeg.map; sourceTree = "<group>"; };
 		4A9504C8FFE6A3BC11CA0CBA /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
 		4A9504CAFFE6A41611CA0CBA /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
 		8D0C4E960486CD37000505A6 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 		20286C2CFDCF999611CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				3488006C21753AE8008DBBF6 /* Jpeg.map */,
 				34640D6C12D5DE7400B207F4 /* mac-icon.icns */,
 				342D52950F0CBA02002A1C7C /* icon16.png */,
 				342D52960F0CBA02002A1C7C /* icon32.png */,
@@ -265,6 +268,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3488006D21753DD2008DBBF6 /* Jpeg.map in Resources */,
 				34640D6D12D5DE7400B207F4 /* mac-icon.icns in Resources */,
 				8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */,
 				8D0C4E8E0486CD37000505A6 /* main.nib in Resources */,
