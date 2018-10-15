@@ -1347,7 +1347,7 @@ public:
 			{
 				BitReference Ref;
 				Ref = View;
-				int a = d->CastInt(Ref, Little);
+				auto a = d->CastInt(Ref, Little);
 				if (a != Val)
 				{
 					View.Out.Print("%sValue Mismatch!\n", Tabs);
@@ -1492,7 +1492,7 @@ public:
 					}
 					case 8:
 					{
-						uint32 v = DeNibble(View.Aligned(), b->Bytes);
+						uint32 v = (uint32)DeNibble(View.Aligned(), b->Bytes);
 						uint32 n = IfSwap(v, Little);
 						View.Out.Print("%s%i (0x%08.8x)\n", LeadIn, n, n);
 						break;

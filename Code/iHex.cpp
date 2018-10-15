@@ -200,7 +200,7 @@ public:
 			}
 		}
 
-		OldUnits = GetCtrlValue(IDC_UNITS);
+		OldUnits = (int)GetCtrlValue(IDC_UNITS);
 	}
 
 	int64 GetBytes(int Units = -1)
@@ -646,7 +646,7 @@ void GHexBuffer::SetDirty(bool Dirty)
 	}
 }
 
-bool GHexBuffer::GetData(int64 Start, int Len)
+bool GHexBuffer::GetData(int64 Start, size_t Len)
 {
 	static bool IsAsking = false;
 	bool Status = false;
@@ -719,13 +719,13 @@ bool GHexBuffer::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char1
 	int64 X = Offset % View->BytesPerLine;
 	int64 Y = Offset / View->BytesPerLine;
 	
-	int64 YPos = View->VScroll ? View->VScroll->Value() : 0;
-	int64 YPx = (Y - YPos) * View->CharSize.y;
-	int64 XHexPx = 0, XAsciiPx = 0;
+	int YPos = (int)(View->VScroll ? View->VScroll->Value() : 0);
+	int YPx = (int)((Y - YPos) * View->CharSize.y);
+	int XHexPx = 0, XAsciiPx = 0;
 	
 	char16 s[128];
-	int HexLen = X * 3;
-	int AsciiLen = (View->BytesPerLine * 3) + GAP_HEX_ASCII + X;
+	int HexLen = (int)X * 3;
+	int AsciiLen = (int)((View->BytesPerLine * 3) + GAP_HEX_ASCII + X);
 	if (!LineBuf)
 	{
 		LineBuf = s;
@@ -734,11 +734,11 @@ bool GHexBuffer::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char1
 	}
 	
 	{
-		GDisplayString ds(View->Font, LineBuf, HexLen);
+		GDisplayString ds(View->Font, LineBuf, (int)HexLen);
 		XHexPx = ds.X();
 	}
 	{
-		GDisplayString ds(View->Font, LineBuf, AsciiLen);
+		GDisplayString ds(View->Font, LineBuf, (int)AsciiLen);
 		XAsciiPx = ds.X();
 	}
 	
@@ -765,9 +765,9 @@ enum ColourFlags
 void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Compare)
 {
 	// First position the layout
-	int BufOff = Start - BufPos;
-	int Bytes = MIN(Len, BufUsed - BufOff);
-	int Lines = (Bytes + View->BytesPerLine - 1) / View->BytesPerLine;
+	int64 BufOff = Start - BufPos;
+	int64 Bytes = MIN(Len, BufUsed - BufOff);
+	int Lines = (int)((Bytes + View->BytesPerLine - 1) / View->BytesPerLine);
 
 	// Colour setup
 	bool SelectedBuf = View->Cursor.Buf == this;
@@ -901,7 +901,7 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 		}
 		*p++ = 0;
 
-		int CursorOff = -1;
+		int64 CursorOff = -1;
 		if (View->Cursor.Buf == this)
 		{
 			if (View->Cursor.Index >= BufPos &&
@@ -943,12 +943,12 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 				if (e > View->BytesPerLine * 3 - 2)
 					e = View->BytesPerLine * 3 - 2;
 
-				for (int i=s; i<=e; i++)
+				for (int64 i=s; i<=e; i++)
 				{
 					ForeFlags[i] |= SelectedCol;
 					BackFlags[i] |= SelectedCol;
 				}
-				for (int i=(s/3)+StartOfAscii; i<=(e/3)+StartOfAscii; i++)
+				for (int64 i=(s/3)+StartOfAscii; i<=(e/3)+StartOfAscii; i++)
 				{
 					ForeFlags[i] |= SelectedCol;
 					BackFlags[i] |= SelectedCol;
@@ -1127,9 +1127,9 @@ bool GHexView::SetFileSize(int64 size)
 		Buf.Length() &&
 		Cursor.Buf)
 	{
-		Cursor.Buf->SetSize(size);
+		Cursor.Buf->SetSize((size_t)size);
 
-		int p = Cursor.Buf->BufPos;
+		auto p = Cursor.Buf->BufPos;
 		Cursor.Buf->BufPos++;
 		Cursor.Buf->GetData(p, 1);
 
@@ -1174,7 +1174,7 @@ void GHexView::Copy(FormatType Fmt)
 
 	int64 Len = Max - Min + 1;
 
-	if (!b->GetData(Min, Len))
+	if (!b->GetData(Min, (size_t)Len))
 	{
 		LgiMsg(this, "Error: Failed to get source buffer.", AppName);
 		return;
@@ -1335,7 +1335,7 @@ void GHexView::UpdateScrollBar()
 	for (unsigned i=0; i<Buf.Length(); i++)
 	{
 		GHexBuffer *b = Buf[i];
-		int BufLines = (b->Size + 15) / 16;
+		auto BufLines = (b->Size + 15) / 16;
 		DocLines = MAX(DocLines, BufLines);
 	}
 
@@ -1361,12 +1361,12 @@ void GHexView::SwapBytes(void *p, int Len)
 	}
 }
 
-bool GHexView::GetDataAtCursor(char *&Data, int &Len)
+bool GHexView::GetDataAtCursor(char *&Data, size_t &Len)
 {
 	GHexBuffer *b = Buf.Length() ? Buf.First() : NULL;
 	if (b && b->Buf)
 	{
-		int Offset = Cursor.Index - b->BufPos;
+		size_t Offset = (size_t)(Cursor.Index - b->BufPos);
 		Data = (char*)b->Buf + Offset;
 		Len = MIN(b->BufUsed, b->BufLen) - Offset;
 		return true;
@@ -1380,15 +1380,15 @@ bool GHexView::HasSelection()
 	return Selection.Index >= 0;
 }
 
-int GHexView::GetSelectedNibbles()
+int64 GHexView::GetSelectedNibbles()
 {
 	if (!HasSelection())
 		return 0;
 
-	int c = (Cursor.Index << 1) + Cursor.Nibble;
-	int s = (Selection.Index << 1) + Selection.Nibble;
+	auto c = (Cursor.Index << 1) + Cursor.Nibble;
+	auto s = (Selection.Index << 1) + Selection.Nibble;
 	
-	int Min, Max;
+	int64 Min, Max;
 	if (s < c)
 	{
 		Min = s;
@@ -1575,7 +1575,7 @@ int64 GHexView::Search(SearchDlg *For, uchar *Bytes, int Len)
 
 void GHexView::DoSearch(SearchDlg *For)
 {
-	int Block = 32 << 10;
+	size_t Block = 32 << 10;
 	int64 Hit = -1, c;
 	int64 Time = LgiCurrentTime();
 	GProgressDlg *Prog = 0;
@@ -1586,7 +1586,7 @@ void GHexView::DoSearch(SearchDlg *For)
 	// Search through to the end of the file...
 	for (c = Cursor.Index + 1; c < b->Size; c += Block)
 	{
-		int Actual = MIN(Block, GetFileSize() - c);
+		size_t Actual = (size_t)MIN(Block, GetFileSize() - c);
 		if (b->GetData(c, Actual))
 		{
 			Hit = Search(For, b->Buf + (c - b->BufPos), Actual);
@@ -1627,7 +1627,7 @@ void GHexView::DoSearch(SearchDlg *For)
 		{
 			if (b->GetData(c, Block))
 			{
-				int Actual = MIN(Block, Cursor.Index - c);
+				size_t Actual = (size_t)MIN(Block, Cursor.Index - c);
 				Hit = Search(For, b->Buf + (c - b->BufPos), Actual);
 				if (Hit >= 0)
 				{
@@ -1844,7 +1844,7 @@ bool FileToArray(GArray<uint8> &a, const char *File)
 	if (!f.Open(File, O_READ))
 		return false;
 	
-	if (!a.Length(f.GetSize()))
+	if (!a.Length((size_t)f.GetSize()))
 		return false;
 	
 	int rd = f.Read(&a[0], a.Length());
@@ -1881,15 +1881,15 @@ bool GHexView::CreateFile(int64 Len)
 		return false;
 
 	Buf.Add(b);
-	b->Buf = new uchar[b->BufLen = Len];
+	b->Buf = new uchar[b->BufLen = (size_t)Len];
 	if (!b->Buf)
 	{
 		Buf.DeleteObjects();
 		return false;
 	}
 
-	memset(b->Buf, 0, Len);
-	b->BufUsed = Len;
+	memset(b->Buf, 0, (size_t)Len);
+	b->BufUsed = (size_t)Len;
 	b->Size = Len;
 
 	Focus(true);
@@ -2015,7 +2015,7 @@ bool GHexView::SaveFile(GHexBuffer *b, char *FileName)
 		{
 			if (b->File->Seek(b->BufPos, SEEK_SET) == b->BufPos)
 			{
-				int Len = MIN(b->BufLen, b->Size - b->BufPos);
+				size_t Len = (size_t)MIN(b->BufLen, b->Size - b->BufPos);
 				Status = b->File->Write(b->Buf, Len) == Len;
 			}
 		}
@@ -2056,7 +2056,7 @@ void GHexView::SaveSelection(GHexBuffer *b, char *FileName)
 			for (int64 i=0; i<Len; i+=Block)
 			{
 				int64 AbsPos = Min + i;
-				int64 Bytes = MIN(Block, Len - i);
+				size_t Bytes = (size_t)MIN(Block, Len - i);
 				if (b->GetData(AbsPos, Bytes))
 				{
 					uchar *p = b->Buf + (AbsPos - b->BufPos);
@@ -2120,7 +2120,7 @@ void GHexView::SelectionFillRandom(GStream *Rnd)
 			}
 			#endif
 
-			int w = b->File->Write(&Buf[0], Remain);
+			ssize_t w = b->File->Write(&Buf[0], (size_t)Remain);
 			if (w != Remain)
 			{
 				LgiMsg(this, "Write file failed.", AppName);
@@ -2208,11 +2208,11 @@ void GHexView::OnPaint(GSurface *pDC)
 	
 	Cursor.Pos.Length(0);
 
-	int MaxSize = 0;
+	int64 MaxSize = 0;
 	for (unsigned int BufIdx = 0; BufIdx < Buf.Length(); BufIdx++)
 		MaxSize = MAX(MaxSize, Buf[BufIdx]->Size);
-	int AddrLines = (MaxSize + BytesPerLine - 1) / BytesPerLine;
-	int Addrs = AddrLines - YPos;
+	int64 AddrLines = (MaxSize + BytesPerLine - 1) / BytesPerLine;
+	int64 Addrs = AddrLines - YPos;
 
 	// Draw all the addresses
 	Font->Transparent(false);
@@ -2279,7 +2279,7 @@ void GHexView::OnPaint(GSurface *pDC)
 		TopMargin.Subtract(&r);
 	
 		int64 End = MIN(b->Size, Start + (Lines * BytesPerLine));
-		if (b->GetData(Start, End-Start))
+		if (b->GetData(Start, (size_t)(End-Start)))
 		{
 			GHexBuffer *Comp = Buf.Length() > 1 ? Buf[!BufIdx] : NULL;
 			b->OnPaint(pDC, Start, End - Start, Comp);
@@ -2830,7 +2830,7 @@ int AppWnd::OnNotify(GViewI *Ctrl, int Flags)
 			if (Flags == GNotifyCursorChanged)
 			{
 				char *Data;
-				int Len;
+				size_t Len;
 				if (Visual && Doc->GetDataAtCursor(Data, Len))
 				{
 					Visual->Visualise(Data, Len, GetCtrlValue(IDC_LITTLE) );
@@ -2853,7 +2853,7 @@ int AppWnd::OnNotify(GViewI *Ctrl, int Flags)
 					}
 				}
 				
-				int SelLen = Doc->GetSelectedNibbles();
+				auto SelLen = Doc->GetSelectedNibbles();
 				char s[256];
 				sprintf_s(s, sizeof(s), "Selection: %.1f bytes", (double)SelLen/2.0);
 				StatusInfo[1]->Name(SelLen ? s : NULL);

@@ -32,8 +32,8 @@ public:
 
 	// Buffer
 	uchar *Buf;			// Buffer for data from the file
-	int BufLen;			// Length of the data buffer
-	int BufUsed;		// Length of the buffer used
+	size_t BufLen;		// Length of the data buffer
+	size_t BufUsed;		// Length of the buffer used
 	int64 BufPos;		// Where the start of the buffer came from in the file
 
 	// Position
@@ -59,7 +59,7 @@ public:
 		Empty();
 	}
 
-	int64 SetSize(int64 sz)
+	int64 SetSize(size_t sz)
 	{
 		if (File)
 		{
@@ -67,7 +67,7 @@ public:
 		}
 		else // Memory buffer... resize the memory
 		{
-			int64 Common = MIN(Size, sz);
+			size_t Common = MIN((size_t)Size, sz);
 			uchar *NewBuf = new uchar[sz];
 			if (!NewBuf)
 			{
@@ -75,9 +75,9 @@ public:
 			}
 
 			if (Common)
-				memcpy(NewBuf, Buf, Common);
+				memcpy(NewBuf, Buf, (size_t)Common);
 			if (Common < sz)
-				memset(NewBuf+Common, 0, sz - Common);
+				memset(NewBuf+Common, 0, (size_t)(sz - Common));
 
 			delete [] Buf;
 
@@ -135,7 +135,7 @@ public:
 
 	bool Save();
 	void SetDirty(bool Dirty = true);
-	bool GetData(int64 Start, int Len);
+	bool GetData(int64 Start, size_t Len);
 	bool GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char16 *LineBuf);
 	void OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Compare);
 };
@@ -243,7 +243,7 @@ public:
 	void Paste(FormatType Fmt);
 
 	bool HasSelection();
-	int GetSelectedNibbles();
+	int64 GetSelectedNibbles();
 	void UpdateScrollBar();
 	GHexBuffer *GetCursorBuffer();
 	void SetCursor(GHexBuffer *b, int64 cursor, int nibble = 0, bool select = false);
@@ -254,7 +254,7 @@ public:
 	int64 Search(SearchDlg *For, uchar *Bytes, int Len);
 	void DoSearch(SearchDlg *For);
 	bool GetCursorFromLoc(int x, int y, GHexCursor &c);
-	bool GetDataAtCursor(char *&Data, int &Len);
+	bool GetDataAtCursor(char *&Data, size_t &Len);
 	void SetBit(uint8 Bit, bool On);
 	void SetByte(uint8 Byte);
 	void SetShort(uint16 Byte);

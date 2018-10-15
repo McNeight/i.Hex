@@ -134,7 +134,7 @@ public:
 	bool SearchUp;
 	
 	uchar *Bin;
-	int Length;
+	int64 Length;
 
 	SearchDlg(AppWnd *app);
 	~SearchDlg();
