@@ -2617,7 +2617,7 @@ GString ResourcesFld()
 GString MapFld()
 {
 	char Base[MAX_PATH] = "";
-	LgiGetSystemPath(LSP_APP_ROOT, Base, sizeof(Base));
+	LGetSystemPath(LSP_APP_ROOT, Base, sizeof(Base));
 	if (!DirExists(Base))
 		FileDev->CreateFolder(Base);
 	LgiMakePath(Base, sizeof(Base), Base, "Maps");
@@ -2629,7 +2629,7 @@ GString MapFld()
 GString MapFld()
 {
 	char Base[MAX_PATH] = "";
-	LgiGetSystemPath(LSP_APP_INSTALL, Base, sizeof(Base));
+	LGetSystemPath(LSP_APP_INSTALL, Base, sizeof(Base));
 	return Base;
 }
 #endif
