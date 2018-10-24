@@ -1087,7 +1087,7 @@ class StructureMap : public LListItem, public GDom
 	GArray<ScopeType> Stack;
 
 public:
-	GHashTbl<const char*, char16*> Defines;
+	LHashTbl<ConstStrKey<char>, char16*> Defines;
 	GArray<StructDef*> Compiled;
 
 	StructDef *GetStruct(const char *Name)
