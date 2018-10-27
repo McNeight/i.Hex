@@ -39,6 +39,9 @@ public:
 	// Position
 	GRect Pos;
 
+	// Layout
+	GString::Array Content;
+
 	GHexBuffer(GHexView *view)
 	{
 		View = view;
@@ -52,6 +55,7 @@ public:
 		Used = 0;
 		IsDirty = false;
 		IsReadOnly = false;
+		Content.SetFixedLength(false);
 	}
 
 	~GHexBuffer()

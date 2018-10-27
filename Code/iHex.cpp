@@ -721,34 +721,46 @@ bool GHexBuffer::GetLocationOfByte(GArray<GRect> &Loc, int64 Offset, const char1
 	
 	int YPos = (int)(View->VScroll ? View->VScroll->Value() : 0);
 	int YPx = (int)((Y - YPos) * View->CharSize.y);
-	int XHexPx = 0, XAsciiPx = 0;
-	
-	char16 s[128];
+
+	GAutoWString w;
 	int HexLen = (int)X * 3;
 	int AsciiLen = (int)((View->BytesPerLine * 3) + GAP_HEX_ASCII + X);
 	if (!LineBuf)
 	{
-		LineBuf = s;
-		for (unsigned i=0; i<128; i++)
-			s[i] = ' ';
+		if (!Content[Y])
+		{
+			return false;
+		}
+		if (!w.Reset(Utf8ToWide(Content[Y])))
+		{
+			LgiAssert(!"Conversion failed");
+			return false;
+		}
+		LineBuf = w.Get();
 	}
 	
 	{
-		GDisplayString ds(View->Font, LineBuf, (int)HexLen);
-		XHexPx = ds.X();
-	}
-	{
-		GDisplayString ds(View->Font, LineBuf, (int)AsciiLen);
-		XAsciiPx = ds.X();
-	}
-	
-	GRect &rcHex = Loc.New();
-	rcHex.ZOff((View->CharSize.x<<1) - 1, View->CharSize.y-1);
-	rcHex.Offset(XHexPx + Pos.x1, YPx + Pos.y1);
+		GRect &rcHex = Loc.New();
 
-	GRect &rcAscii = Loc.New();
-	rcAscii.ZOff(View->CharSize.x - 1, View->CharSize.y-1);
-	rcAscii.Offset(XAsciiPx + Pos.x1, YPx + Pos.y1);
+		GDisplayString ds(View->Font, LineBuf, (int)HexLen);
+		int x1 = ds.X();
+		GDisplayString ds2(View->Font, LineBuf, (int)HexLen+2);
+		int x2 = ds2.X();
+
+		rcHex.ZOff(x2 - x1 - 1, View->CharSize.y-1);
+		rcHex.Offset(x1 + Pos.x1, YPx + Pos.y1);
+	}
+	{
+		GRect &rcAscii = Loc.New();
+
+		GDisplayString ds(View->Font, LineBuf, (int)AsciiLen);
+		int x1 = ds.X();
+		GDisplayString ds2(View->Font, LineBuf, (int)AsciiLen+1);
+		int x2 = ds2.X();
+
+		rcAscii.ZOff(x2 - x1 - 1, View->CharSize.y-1);
+		rcAscii.Offset(x1 + Pos.x1, YPx + Pos.y1);
+	}
 	
 	return true;
 }
@@ -761,6 +773,8 @@ enum ColourFlags
 	ChangedCol = 4,
 	CursorCol = 8,
 };
+
+#define Int2Hex(c)		( (c) < 10 ? '0' + (c) : (c) - 10 + 'A' )
 
 void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Compare)
 {
@@ -823,6 +837,8 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 	int EndY = Pos.y1 + (Lines * View->CharSize.y);
 	EndY = MAX(EndY, Pos.y1);
 	
+	Content.Length(0);
+	
 	for (int Line=0; Line<Lines; Line++)
 	{
 		int CurY = Pos.y1 + (Line * View->CharSize.y);
@@ -863,12 +879,15 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 					}
 				}
 
-				Ch += sprintf_s(s + Ch, sizeof(s) - Ch, "%02.2X ", Buf[n]);
+				s[Ch++] = Int2Hex(Buf[n] >> 4);
+				s[Ch++] = Int2Hex(Buf[n] & 0xf);
 			}
 			else
 			{
-				Ch += sprintf_s(s + Ch, sizeof(s) - Ch, "   ");
+				s[Ch++] = ' ';
+				s[Ch++] = ' ';
 			}
+			s[Ch++] = ' ';
 		}
 
 		// Separator between hex/ascii
@@ -900,6 +919,7 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 			}
 		}
 		*p++ = 0;
+		Content[Line] = s;
 
 		int64 CursorOff = -1;
 		if (View->Cursor.Buf == this)
@@ -1511,15 +1531,17 @@ void GHexView::SetCursor(GHexBuffer *b, int64 cursor, int nibble, bool Selecting
 		
 		Cursor.Flash = true;
 
-		b->GetLocationOfByte(NewLoc, Cursor.Index, NULL);
-		if (!SelectionChanging)
+		if (b->GetLocationOfByte(NewLoc, Cursor.Index, NULL))
 		{
-			// Just update the cursor's old and new locations
-			NewLoc.Add(OldLoc);
-			// DbgRect = NewLoc;
-			for (unsigned i=0; i<NewLoc.Length(); i++)
+			if (!SelectionChanging)
 			{
-				Invalidate(&NewLoc[i]);
+				// Just update the cursor's old and new locations
+				NewLoc.Add(OldLoc);
+				// DbgRect = NewLoc;
+				for (unsigned i=0; i<NewLoc.Length(); i++)
+				{
+					Invalidate(&NewLoc[i]);
+				}
 			}
 		}
 	}
@@ -2326,31 +2348,40 @@ bool GHexView::GetCursorFromLoc(int x, int y, GHexCursor &c)
 		GHexBuffer *b = Buf[i];
 		if (b->Pos.Overlap(x, y))
 		{
-			int col = (x - b->Pos.x1) / CharSize.x;
 			int row = (y - b->Pos.y1) / CharSize.y;
-
-			if (col >= 0 && col < HexCols)
+			if (b->Content[row])
 			{
-				int Byte = col / 3;
-				int Bit = col % 3;
+				GDisplayString Ds(Font, b->Content[row]);
+				int col = Ds.CharAt(x - b->Pos.x1);
 
-				c.Buf = b;
-				c.Index = Start + (row * BytesPerLine) + Byte;
-				c.Nibble = Bit > 0;
-				c.Pane = HexPane;
-				return true;
-			}
-			else if (col >= AsciiCols)
-			{
-				int Asc = col - AsciiCols;
-				if (Asc < BytesPerLine)
+				if (col >= 0 && col < HexCols)
 				{
+					int Byte = col / 3;
+					int Bit = col % 3;
+
 					c.Buf = b;
-					c.Index = Start + (row * BytesPerLine) + Asc;
-					c.Nibble = 0;
-					c.Pane = AsciiPane;
+					c.Index = Start + (row * BytesPerLine) + Byte;
+					c.Nibble = Bit > 0;
+					c.Pane = HexPane;
 					return true;
 				}
+				else if (col >= AsciiCols)
+				{
+					int Asc = col - AsciiCols;
+					if (Asc < BytesPerLine)
+					{
+						c.Buf = b;
+						c.Index = Start + (row * BytesPerLine) + Asc;
+						c.Nibble = 0;
+						c.Pane = AsciiPane;
+						return true;
+					}
+				}
+			}
+			else
+			{
+				LgiAssert(!"No content?");
+				return false;
 			}
 		}
 	}
@@ -3205,11 +3236,23 @@ int AppWnd::OnCommand(int Cmd, int Event, OsView Wnd)
 void AppWnd::Help(const char *File)
 {
 	char e[300];
-	if (File && LgiGetExePath(e, sizeof(e)))
+	
+	if (!File) return;
+	
+	if
+	(
+		#ifdef MAC
+		LgiGetExeFile(e, sizeof(e))
+		#else
+		LgiGetExePath(e, sizeof(e))
+		#endif
+	)
 	{
 		#ifdef WIN32
 		if (stristr(e, "\\Release") || stristr(e, "\\Debug"))
 			LgiTrimDir(e);
+		#elif defined(MAC)
+		LgiMakePath(e, sizeof(e), e, "Contents/Resources");
 		#endif
 		LgiMakePath(e, sizeof(e), e, "Help");
 		LgiMakePath(e, sizeof(e), e, File);

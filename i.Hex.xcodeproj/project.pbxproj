@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		34199FFC21851A3900121983 /* Help in Resources */ = {isa = PBXBuildFile; fileRef = 34199FFB21851A3900121983 /* Help */; };
 		342D52860F0CB994002A1C7C /* iHex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52810F0CB994002A1C7C /* iHex.cpp */; };
 		342D52870F0CB994002A1C7C /* MapLex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52830F0CB994002A1C7C /* MapLex.cpp */; };
 		342D52880F0CB994002A1C7C /* SearchDlg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 342D52840F0CB994002A1C7C /* SearchDlg.cpp */; };
@@ -63,6 +64,7 @@
 		1870340FFE93FCAF11CA0CD7 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/main.nib; sourceTree = "<group>"; };
 		20286C33FDCF999611CA2CEA /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
 		32DBCF6D0370B57F00C91783 /* i.Hex_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = i.Hex_Prefix.pch; sourceTree = "<group>"; };
+		34199FFB21851A3900121983 /* Help */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Help; sourceTree = "<group>"; };
 		342D52810F0CB994002A1C7C /* iHex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = iHex.cpp; path = Code/iHex.cpp; sourceTree = "<group>"; };
 		342D52820F0CB994002A1C7C /* iHex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = iHex.h; path = Code/iHex.h; sourceTree = "<group>"; };
 		342D52830F0CB994002A1C7C /* MapLex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MapLex.cpp; path = Code/MapLex.cpp; sourceTree = "<group>"; };
@@ -143,6 +145,7 @@
 		20286C2CFDCF999611CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				34199FFB21851A3900121983 /* Help */,
 				3488006C21753AE8008DBBF6 /* Jpeg.map */,
 				34640D6C12D5DE7400B207F4 /* mac-icon.icns */,
 				342D52950F0CBA02002A1C7C /* icon16.png */,
@@ -273,6 +276,7 @@
 				8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */,
 				8D0C4E8E0486CD37000505A6 /* main.nib in Resources */,
 				342D529C0F0CBA02002A1C7C /* icon16.png in Resources */,
+				34199FFC21851A3900121983 /* Help in Resources */,
 				342D529D0F0CBA02002A1C7C /* icon32.png in Resources */,
 				342D529E0F0CBA02002A1C7C /* icon64.png in Resources */,
 				342D529F0F0CBA02002A1C7C /* ihex.lr8 in Resources */,
