@@ -843,16 +843,25 @@ void GHexBuffer::OnPaint(GSurface *pDC, int64 Start, int64 Len, GHexBuffer *Comp
 	{
 		int CurY = Pos.y1 + (Line * View->CharSize.y);
 		int Ch = 0;
+
+		// This is relative to the start of the buffer.
 		int64 LineStart = BufOff + (Line * View->BytesPerLine);
+		// Absolute file position
+		int64 AbsPos = BufPos + LineStart;
 		
 		// Setup comparison stuff
 		uint8 *CompareBuf = NULL;
 		int CompareLen = 0;
 		if (Compare &&
-			Compare->GetData(LineStart, View->BytesPerLine))
+			Compare->GetData(AbsPos, View->BytesPerLine))
 		{
-			CompareBuf = Compare->Buf + (LineStart - Compare->BufPos);
+			CompareBuf = Compare->Buf + (AbsPos - Compare->BufPos);
 			CompareLen = View->BytesPerLine;
+		}
+		else
+		{
+			CompareBuf = NULL;
+			CompareLen = 0;
 		}
 			
 		// Clear the colours for this line
