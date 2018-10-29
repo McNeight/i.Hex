@@ -236,6 +236,7 @@ public:
 	bool SaveFile(GHexBuffer *b, char *FileName);
 	bool CloseFile(int Index = -1);
 	int Save();
+	bool IsDirty();
 	bool HasFile();
 	bool Empty();
 	void SaveSelection(GHexBuffer *b, char *File);

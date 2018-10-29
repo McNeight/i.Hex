@@ -1997,6 +1997,16 @@ bool GHexView::CloseFile(int Index)
 	return true;
 }
 
+bool GHexView::IsDirty()
+{
+	for (auto b : Buf)
+	{
+		if (b->IsDirty)
+			return true;
+	}
+	return false;
+}
+
 int GHexView::Save()
 {
 	bool Status = true;
@@ -2833,8 +2843,14 @@ void AppWnd::OnReceiveFiles(GArray<char*> &Files)
 
 bool AppWnd::OnRequestClose(bool OsShuttingDown)
 {
-	if (Doc)
-		Doc->Save();
+	if (Doc && Doc->IsDirty())
+	{
+		int r = LgiMsg(this, "Do you want to save?", AppName, OsShuttingDown ? MB_YESNO : MB_YESNOCANCEL);
+		if (r == IDCANCEL)
+			return false;
+		if (r == IDYES)
+			Doc->Save();
+	}
 
 	if (!Active)
 		return GWindow::OnRequestClose(OsShuttingDown);
