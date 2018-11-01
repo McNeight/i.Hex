@@ -24,6 +24,7 @@ enum BaseType
 	TypeChar,
 	TypeStrZ,
 	TypeNibble,
+	TypeEnum,
 };
 
 struct Basic
@@ -34,9 +35,9 @@ struct Basic
 	bool Signed;
 	bool Array;
 	
-	Basic()
+	Basic(BaseType type = TypeNull)
 	{
-		Type = TypeNull;
+		Type = type;
 		Bytes = 0;
 		Bits = 0;
 		Signed = false;
@@ -202,7 +203,7 @@ struct BitReference
 struct ViewContext : public BitReference
 {
 	GStream &Out;
-	uint8 *Base;
+	uint8 *Base, *End;
 	
 	ViewContext(GStream &o) : Out(o)
 	{
@@ -217,6 +218,19 @@ struct ViewContext : public BitReference
 	void Trace(const char *s)
 	{
 		LgiTrace("%p, %x:%i - %s\n", Ptr, Offset(), Bit, s);
+	}
+
+	bool GotoAddress(uint64 Byte, uint8 BitLoc = 0)
+	{
+		if (!Base) return false;
+		Ptr = Base + Byte;
+		if (Ptr >= End)
+			return false;
+		if (BitLoc >= 8)
+			return false;
+		Bit = BitLoc;
+		Len = End - Ptr;
+		return true;
 	}
 };
 
@@ -813,6 +827,7 @@ class StructDef : public GDom
 public:
 	GString Name;
 	GString Base;
+	GString Address;
 	GArray<Member*> Members;
 	GArray<StructDef*> Children;
 
@@ -1886,6 +1901,24 @@ public:
 		Scope.Members = &s->Members;
 		Little = little;
 
+		if (s->Address)
+		{
+			// Resolve the address and seek to the right location...
+			GScriptEngine e(App, App, NULL);
+			GVariant v;
+			if (e.EvaluateExpression(&v, this, s->Address))
+			{
+				auto Addr = v.CastInt64();
+				if (Addr > 0)
+				{
+					if (!View.GotoAddress(Addr))
+						View.Out.Print("Error: Can't goto adddres: " LPrintfInt64 " .\n", Addr);
+				}
+				else View.Out.Print("Error: '%s' doesn't evaluate to an adddres.\n", s->Address.Get());
+			}
+			else View.Out.Print("Error: evaluating the expression '%s'\n", s->Address.Get());
+		}
+
 		bool Error = false;
 		for (Scope.Pos=0; Scope.Pos<s->Members.Length() && View.Len > 0; Scope.Pos++)
 		{
@@ -1913,6 +1946,7 @@ public:
 			Ctx.Base = (uint8*)Data;
 			Ctx.Ptr = (uint8*)Data;
 			Ctx.Len = Len;
+			Ctx.End = Ctx.Base + Len;
 			Ctx.Bit = 0;
 			DoStruct(Main, Ctx, Little);
 		}
@@ -2154,6 +2188,18 @@ public:
 			else
 				v->Base->Bytes = 1;
 		}
+		else if (XCmp(t, "WORD", 4) == 0)
+		{
+			v = new VarDefType;
+			v->Base = new Basic(TypeInteger);
+			v->Base->Bytes = 2;
+		}
+		else if (XCmp(t, "DWORD", 4) == 0)
+		{
+			v = new VarDefType;
+			v->Base = new Basic(TypeInteger);
+			v->Base->Bytes = 4;
+		}
 		else
 		{
 			char *u = WideToUtf8(t);
@@ -2348,11 +2394,24 @@ public:
 						Def->Name = State.NextA();
 
 						t = State.NextW();
-						if (XCmp(t, ":") == 0)
+						while (XCmp(t, "{"))
 						{
-							Literal("inherits");
-							Def->Base = State.NextA();
-							t = State.NextW();
+							if (XCmp(t, ":") == 0)
+							{
+								Literal("inherits");
+								Def->Base = State.NextA();
+								t = State.NextW();
+							}
+							else if (XCmp(t, "@") == 0)
+							{
+								Def->Address = State.NextA();
+								t = State.NextW();
+							}
+							else
+							{
+								Err(State, "unexpected token.");
+								return false;
+							}
 						}
 						CheckTok("{");
 

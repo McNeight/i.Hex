@@ -8,7 +8,9 @@
 	<h1>i.Hex Visualiser</h1>
 	<div class="content">
 
-		<div class="bar"><a href="index.html">Index</a><a href="visual.html">Visualiser</a></div>
+		<div style='text-align:center'>
+			<div class="bar"><a href="index.html">Index</a><a href="visual.html">Visualiser</a></div>
+		</div>
 
 		<div class="heading">Overview</div>
 		The visualiser tool in i.Hex allows you to define new ways of viewing data. Firstly
@@ -109,28 +111,45 @@ struct IntField : inherits Field
 		then set the appropriate conditions on members. If you don't set any conditions on the sub-class members
 		then if can never be used because there is no way to tell if it matches a given bit of data.
 		<p/>
-		Currently there is no support for bit fields but that is planned for a future release.
-		<p/>
-		You can hide the output of certain fields by adding the "hidden" keyword before defining the type. The full
-		syntax of a member variable is:
-		<pre>[hidden] type name [array] [= value];</pre>
-		Where 'type' can be:
-		<ul>
-			<li> int, int8, int16, int32, int64
-			<li> uint, uint8, uint16, uint32, uint64
-			<li> float (4 bytes), double (8 bytes)
-			<li> char, char16, char32
-			<li> strz
-			<li> a custom type
-		</ul>
-		Where 'name' is any legal C variable name.<br>
-		Where 'array' is an array index in the form "[Index]" where index is either an integer constant 
-		or a variable name.<br>
-		Where 'value' is a constant in the form of a decimal or hex integer or a string.<br>
-		Where 'strz' is a NULL terminated string.
+		The full syntax of a member variable is:
+		<pre><opt>hidden</opt> <req>type</req> <req>name</req> <opt><lit>:</lit> bitSize</opt> <opt><lit>[</lit>arraySize<lit>]</lit></opt> <opt><lit>=</lit> value</opt> <opt><lit>*</lit> targetType <lit>@</lit> address</opt>;</pre>
+		Where each part is defined as:
+		<table style='margin: 1em;'>
+			<tr><th>hidden<td><opt>Optional</opt> Hides the variable from the output. </li>
+			<tr><th>type<td><req>Required</req> Can be one of:
+				<ul>
+					<li> int, int8, int16, int32, int64
+					<li> uint, uint8, uint16, uint32, uint64
+					<li> float (4 bytes), double (8 bytes)
+					<li> char, char16, char32 (fixed size string)
+					<li> strz, strz16, strz32 (null terminated string)
+					<li> WORD, DWORD (windows types)
+					<li> A custom type
+				</ul>
+			<tr><th>name<td><req>Required</req> Is any legal <a href='https://en.wikibooks.org/wiki/C_Programming/Variables#Naming_Variables'>C variable name</a>.
+			<tr><th>:&nbsp;bitSize<td><opt>Optional</opt> This variable is a bitfield of 'bitSize' bits.
+			<tr><th>[&nbsp;arraySize&nbsp;]<td><opt>Optional</opt> Is an array index expression in the form '[' + &lt;expression&gt; + ']'.
+			<tr><th>=&nbsp;value<td><opt>Optional</opt> Is a constant in the form of a decimal or hex integer or a string.
+			<tr><th>*&nbsp;targetType&nbsp;@&nbsp;address<td><opt>Optional</opt> This variable is a pointer.<br>
+				<br>
+				The actual type pointed to is 'target-type'.
+				The address part is optional, if not supplied the pointer is an offset from the cursor, otherwise it's a string expression that can include earlier fields 
+				from the same structure, but not later. There are two predefined variables you can use in the expression:
+				<ul>
+					<li> 'this' - the address of the start of the current structure.
+					<li> 'pointer' - the integer value of the pointer itself.
+				</ul>
+				So if you wanted to index off the start of the current structure you would do this:
+				<pre>uint32 MyPointer * MyStructure @ "this + pointer";</pre>
+				Or offset from the end of the current structure:
+				<pre>uint32 MyPointer * MyStructure @ "(this + 1) + pointer";</pre>
+				If you don't use 'this' in the expression the offset is from the currect cursor in the file.
+		</table>
+		
+		The optional parts behind the name can be in any order. The parser uses the initial character to switch to the appropriate handler.
 		
 	</div>
-	<div class="copy">&copy; 2005 <a href="mail:fret@memecode.com">Matthew Allen</a></div>
+	<div class="copy">&copy; 2018 <a href="mail:fret@memecode.com">Matthew Allen</a></div>
 
 </body>
 </html>

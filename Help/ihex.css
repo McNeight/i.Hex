@@ -1,6 +1,7 @@
 body {
 	background: #fcfcfc;
 	margin: 0px;
+	font-family: sans-serif;
 }
 
 h1 {
@@ -19,14 +20,39 @@ a:active
 	color: #ff4444;
 }
 
-div.bar {
+table {
+	border-spacing: 1px;
+	background-color: #e8e8e8;
+}
+
+td, th {
+	vertical-align: top;
+	padding-bottom: 1em;
+	padding: 6px;
+}
+
+th {
+	text-align: right;
+	background-color: #f8f8f8;
+	padding-top: 12px;
+}
+
+td {
+	background-color: white;
+}
+
+td.fld {
 	font-weight: bold;
+}
+
+div.bar {
+	display: inline-block;
+	font-weight: bold;
+	padding: 0.5em;
 	background: #f0f0f0;
 	border: 2px solid #c0c0c0;
-	-moz-border-radius: 8px;
+	border-radius: 12px;
 	text-align: center;
-	width: 30%;
-	margin-left: 35%;
 	margin-top: 0.4em;
 	margin-bottom: 2em;
 }
@@ -55,7 +81,6 @@ div.copy, div.copy a {
 }
 
 div.heading {
-	font-style: italic;
 	font-weight: bold;
 	border-bottom: 1px solid #f8f8f8;
 	margin-bottom: 0.5em;
@@ -69,12 +94,30 @@ key {
 	background: #faf6f6;
 	color: #806868;
 	border-color:  #edd #baa #baa #edd;
-	-moz-border-radius: 4px;
+	border-radius: 4px;
 }
 
 pre {
 	font-weight: bold;
 	color: #008800;
-	padding-left:16px;
+	padding:1em;
 	font-size: 9pt;
+}
+
+opt {
+	color: #88c;
+	background-color: #eef;
+	padding: 5px;
+	display: inline-block;
+}
+
+req {
+	color: #c88;
+	background-color: #fee;
+	padding: 5px;
+	display: inline-block;
+}
+
+lit {
+	color: black;
 }
