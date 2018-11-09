@@ -2699,7 +2699,6 @@ GVisualiseView::GVisualiseView(AppWnd *app, char *DefVisual)
 	Value(150);
 	IsVertical(false);
 	Raised(false);
-	Border(false);
 	SetViewA(Map = new GMapWnd, false);
 	SetViewB(Txt = new GTextView3(80, 0, 0, 100, 100), true);
 	

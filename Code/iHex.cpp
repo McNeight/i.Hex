@@ -2951,7 +2951,6 @@ void AppWnd::ToggleVisualise()
 			
 			Doc->Detach();
 			Split->Value(SPLIT_X);
-			Split->Border(false);
 			Split->Raised(false);
 			Split->Attach(this);
 			Split->SetViewA(Doc, false);
@@ -2982,7 +2981,6 @@ void AppWnd::ToggleTextView()
 		{
 			Doc->Detach();
 			Split->Value(SPLIT_X);
-			Split->Border(false);
 			Split->Raised(false);
 			Split->Attach(this);
 			Split->SetViewA(Doc, false);
